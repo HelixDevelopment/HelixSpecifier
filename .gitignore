@@ -1,0 +1,6 @@
+/bin/
+/coverage.*
+*.exe
+*.test
+*.out
+.helixspecifier/cache/

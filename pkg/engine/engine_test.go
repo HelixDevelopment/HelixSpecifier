@@ -157,6 +157,7 @@ func TestNew(t *testing.T) {
 	assert.Nil(t, e.gsd)
 	assert.Nil(t, e.ceremony)
 	assert.Nil(t, e.memory)
+	assert.Nil(t, e.classifier)
 }
 
 func TestFusionEngine_Name(t *testing.T) {
@@ -362,6 +363,13 @@ func TestFusionEngine_ExecuteFlow_Success(t *testing.T) {
 		result.PhaseResults[0].Phase,
 	)
 	assert.Equal(t, 0.8, result.OverallQualityScore)
+	// FinalArtifact should be set from last phase output
+	assert.NotEmpty(t, result.FinalArtifact)
+	// Specification should always be built
+	require.NotNil(t, result.Specification)
+	assert.Equal(
+		t, types.SourceFusion, result.Specification.Source,
+	)
 }
 
 func TestFusionEngine_ExecuteFlow_PhaseFailure(t *testing.T) {
@@ -693,6 +701,15 @@ func TestFusionEngine_ExecuteFlow_MultiplePhases(t *testing.T) {
 	assert.InDelta(
 		t, expectedQuality, result.OverallQualityScore, 0.001,
 	)
+
+	// Specification should be built with requirements
+	require.NotNil(t, result.Specification)
+	assert.Len(t, result.Specification.Requirements, 3)
+	assert.Equal(
+		t,
+		"implementation output",
+		result.FinalArtifact,
+	)
 }
 
 func TestFusionEngine_ClassifyEffort_WithCeremonyScaler(
@@ -864,6 +881,74 @@ func TestFusionEngine_SetDebateFunc_NilSpecKit(t *testing.T) {
 	})
 }
 
+// --- Mock Superpowers and GSD ---
+
+type mockSuperPillar struct {
+	dispatchResults []types.TaskResult
+	dispatchErr     error
+	reviewResult    *types.ReviewResult
+	reviewErr       error
+}
+
+func (m *mockSuperPillar) ExecuteWithTDD(
+	ctx context.Context,
+	tasks []types.Task,
+) ([]types.TaskResult, error) {
+	return m.dispatchResults, m.dispatchErr
+}
+
+func (m *mockSuperPillar) DispatchSubagents(
+	ctx context.Context,
+	tasks []types.Task,
+	maxParallel int,
+) ([]types.TaskResult, error) {
+	return m.dispatchResults, m.dispatchErr
+}
+
+func (m *mockSuperPillar) ReviewCode(
+	ctx context.Context,
+	taskResults []types.TaskResult,
+) (*types.ReviewResult, error) {
+	return m.reviewResult, m.reviewErr
+}
+
+type mockGSDPillar struct {
+	milestones    []types.Milestone
+	createErr     error
+	trackResult   *types.Milestone
+	trackErr      error
+	progress      float64
+	progressErr   error
+	trackCalled   bool
+	trackMsID     string
+	trackResults  []types.TaskResult
+}
+
+func (m *mockGSDPillar) CreateMilestones(
+	ctx context.Context,
+	spec *types.Specification,
+	tasks []types.Task,
+) ([]types.Milestone, error) {
+	return m.milestones, m.createErr
+}
+
+func (m *mockGSDPillar) TrackProgress(
+	ctx context.Context,
+	milestoneID string,
+	taskResults []types.TaskResult,
+) (*types.Milestone, error) {
+	m.trackCalled = true
+	m.trackMsID = milestoneID
+	m.trackResults = taskResults
+	return m.trackResult, m.trackErr
+}
+
+func (m *mockGSDPillar) GetProgress(
+	flowID string,
+) (float64, error) {
+	return m.progress, m.progressErr
+}
+
 func TestFusionEngine_ExecuteFlow_FlowMetadata(t *testing.T) {
 	e := newTestEngine()
 	ctx := context.Background()
@@ -889,4 +974,538 @@ func TestFusionEngine_ExecuteFlow_FlowMetadata(t *testing.T) {
 		t, "test metadata", result.Metadata["request"],
 	)
 	assert.NotNil(t, result.Metadata["classification"])
+}
+
+// --- New tests for classifier, all pillars, helpers ---
+
+func TestFusionEngine_RegisterClassifier(t *testing.T) {
+	e := newTestEngine()
+	assert.Nil(t, e.classifier)
+
+	fn := func(req string) *types.EffortClassification {
+		return &types.EffortClassification{
+			Level: types.EffortLarge,
+		}
+	}
+	e.RegisterClassifier(fn)
+	assert.NotNil(t, e.classifier)
+}
+
+func TestFusionEngine_ClassifyEffort_WithClassifier(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	e.RegisterClassifier(
+		func(req string) *types.EffortClassification {
+			return &types.EffortClassification{
+				Level:         types.EffortEpic,
+				Confidence:    0.9,
+				Signals:       []string{"custom_signal"},
+				Reasoning:     "Custom classifier",
+				CeremonyLevel: types.CeremonyHeavy,
+				RequiresDebate:  true,
+				RequiresSpecKit: true,
+			}
+		},
+	)
+
+	cl, err := e.ClassifyEffort(
+		ctx, "rebuild the entire system from scratch",
+	)
+	require.NoError(t, err)
+	require.NotNil(t, cl)
+	assert.Equal(t, types.EffortEpic, cl.Level)
+	assert.Equal(t, 0.9, cl.Confidence)
+	assert.Contains(t, cl.Signals, "custom_signal")
+	assert.Equal(t, "Custom classifier", cl.Reasoning)
+	assert.Equal(t, types.CeremonyHeavy, cl.CeremonyLevel)
+	assert.True(t, cl.RequiresDebate)
+	assert.True(t, cl.RequiresSpecKit)
+}
+
+func TestFusionEngine_ClassifyEffort_ClassifierWithScaler(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	e.RegisterClassifier(
+		func(req string) *types.EffortClassification {
+			return &types.EffortClassification{
+				Level:         types.EffortMedium,
+				Confidence:    0.6,
+				CeremonyLevel: types.CeremonyLight,
+			}
+		},
+	)
+	scaler := &mockCeremonyScaler{
+		scaleResult: types.CeremonyStandard,
+	}
+	e.RegisterCeremonyScaler(scaler)
+
+	cl, err := e.ClassifyEffort(ctx, "some task")
+	require.NoError(t, err)
+	// Scaler overrides ceremony level
+	assert.Equal(
+		t, types.CeremonyStandard, cl.CeremonyLevel,
+	)
+}
+
+func TestFusionEngine_ExecuteFlow_WithAllPillars(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	// Register SpecKit with multiple phases
+	mockSK := &mockSpecKitPillar{
+		phases: map[types.SpecKitPhase]*types.PhaseResult{
+			types.PhaseSpecify: {
+				Phase:        types.PhaseSpecify,
+				StartTime:    time.Now(),
+				EndTime:      time.Now(),
+				Duration:     50 * time.Millisecond,
+				Success:      true,
+				Output:       "spec output",
+				QualityScore: 0.9,
+			},
+			types.PhasePlan: {
+				Phase:        types.PhasePlan,
+				StartTime:    time.Now(),
+				EndTime:      time.Now(),
+				Duration:     50 * time.Millisecond,
+				Success:      true,
+				Output:       "plan output",
+				QualityScore: 0.8,
+			},
+			types.PhaseImplement: {
+				Phase:        types.PhaseImplement,
+				StartTime:    time.Now(),
+				EndTime:      time.Now(),
+				Duration:     100 * time.Millisecond,
+				Success:      true,
+				Output:       "impl output",
+				QualityScore: 0.85,
+			},
+		},
+	}
+	e.RegisterSpecKit(mockSK)
+
+	// Register Superpowers
+	sp := &mockSuperPillar{
+		dispatchResults: []types.TaskResult{
+			{
+				TaskID:  "task-specify",
+				Success: true,
+				Output:  "done",
+			},
+		},
+		reviewResult: &types.ReviewResult{
+			Approved: true,
+			Score:    0.95,
+		},
+	}
+	e.RegisterSuperpowers(sp)
+
+	// Register GSD
+	gsd := &mockGSDPillar{
+		milestones: []types.Milestone{
+			{
+				ID:     "ms-1",
+				Name:   "Milestone 1",
+				Status: types.MilestoneQueued,
+			},
+		},
+		trackResult: &types.Milestone{
+			ID:       "ms-1",
+			Progress: 0.5,
+		},
+	}
+	e.RegisterGSD(gsd)
+
+	classification := &types.EffortClassification{
+		Level:         types.EffortMedium,
+		CeremonyLevel: types.CeremonyLight,
+	}
+
+	result, err := e.ExecuteFlow(
+		ctx, "build feature", classification,
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+
+	// Superpowers should have populated review metadata
+	assert.Equal(t, 0.95, result.Metadata["review_score"])
+	assert.Equal(
+		t, true, result.Metadata["review_approved"],
+	)
+
+	// GSD milestones should be present
+	require.Len(t, result.Milestones, 1)
+	assert.Equal(t, "ms-1", result.Milestones[0].ID)
+
+	// GSD TrackProgress should have been called
+	assert.True(t, gsd.trackCalled)
+	assert.Equal(t, "ms-1", gsd.trackMsID)
+
+	// FinalArtifact should be last phase output
+	assert.Equal(t, "impl output", result.FinalArtifact)
+
+	// Specification should be built
+	require.NotNil(t, result.Specification)
+	assert.Len(t, result.Specification.Requirements, 3)
+}
+
+func TestFusionEngine_ExecuteFlow_SuperpowersDispatchError(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	mockSK := &mockSpecKitPillar{
+		phases: map[types.SpecKitPhase]*types.PhaseResult{
+			types.PhaseSpecify: {
+				Phase:        types.PhaseSpecify,
+				Success:      true,
+				Output:       "spec",
+				QualityScore: 0.8,
+			},
+			types.PhasePlan: {
+				Phase:        types.PhasePlan,
+				Success:      true,
+				Output:       "plan",
+				QualityScore: 0.8,
+			},
+			types.PhaseImplement: {
+				Phase:        types.PhaseImplement,
+				Success:      true,
+				Output:       "impl",
+				QualityScore: 0.8,
+			},
+		},
+	}
+	e.RegisterSpecKit(mockSK)
+
+	sp := &mockSuperPillar{
+		dispatchErr: fmt.Errorf("dispatch failed"),
+	}
+	e.RegisterSuperpowers(sp)
+
+	classification := &types.EffortClassification{
+		Level:         types.EffortMedium,
+		CeremonyLevel: types.CeremonyLight,
+	}
+
+	// Superpowers failure should not fail the flow
+	result, err := e.ExecuteFlow(
+		ctx, "task with failed dispatch", classification,
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	// No review metadata should be set
+	_, hasReviewScore := result.Metadata["review_score"]
+	assert.False(t, hasReviewScore)
+}
+
+func TestFusionEngine_ExecuteFlow_SinglePhaseNoSuperpowers(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	mockSK := &mockSpecKitPillar{
+		phases: make(
+			map[types.SpecKitPhase]*types.PhaseResult,
+		),
+	}
+	e.RegisterSpecKit(mockSK)
+
+	// Register superpowers but use minimal ceremony (1 phase)
+	sp := &mockSuperPillar{
+		dispatchResults: []types.TaskResult{
+			{TaskID: "t1", Success: true},
+		},
+	}
+	e.RegisterSuperpowers(sp)
+
+	classification := &types.EffortClassification{
+		Level:         types.EffortQuick,
+		CeremonyLevel: types.CeremonyMinimal,
+	}
+
+	result, err := e.ExecuteFlow(
+		ctx, "quick fix", classification,
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	// Superpowers should NOT fire for single-phase flows
+	_, hasReview := result.Metadata["review_score"]
+	assert.False(t, hasReview)
+}
+
+func TestFusionEngine_ExecuteFlow_FinalArtifact(t *testing.T) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	mockSK := &mockSpecKitPillar{
+		phases: map[types.SpecKitPhase]*types.PhaseResult{
+			types.PhaseImplement: {
+				Phase:        types.PhaseImplement,
+				Success:      true,
+				Output:       "the final output",
+				QualityScore: 0.9,
+			},
+		},
+	}
+	e.RegisterSpecKit(mockSK)
+
+	classification := &types.EffortClassification{
+		Level:         types.EffortQuick,
+		CeremonyLevel: types.CeremonyMinimal,
+	}
+
+	result, err := e.ExecuteFlow(
+		ctx, "produce artifact", classification,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "the final output", result.FinalArtifact)
+}
+
+func TestFusionEngine_ExecuteFlow_Specification(t *testing.T) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	mockSK := &mockSpecKitPillar{
+		phases: map[types.SpecKitPhase]*types.PhaseResult{
+			types.PhaseImplement: {
+				Phase:        types.PhaseImplement,
+				Success:      true,
+				Output:       "implementation done",
+				QualityScore: 0.75,
+			},
+		},
+	}
+	e.RegisterSpecKit(mockSK)
+
+	classification := &types.EffortClassification{
+		Level:         types.EffortQuick,
+		CeremonyLevel: types.CeremonyMinimal,
+	}
+
+	result, err := e.ExecuteFlow(
+		ctx, "my request", classification,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, result.Specification)
+
+	spec := result.Specification
+	assert.Contains(t, spec.ID, result.FlowID)
+	assert.Equal(t, "my request", spec.Title)
+	assert.Equal(t, "my request", spec.Description)
+	assert.Equal(t, types.SourceFusion, spec.Source)
+	assert.False(t, spec.CreatedAt.IsZero())
+	assert.False(t, spec.UpdatedAt.IsZero())
+	assert.InDelta(
+		t, 0.75, spec.QualityScore, 0.001,
+	)
+	require.Len(t, spec.Requirements, 1)
+	assert.Equal(
+		t,
+		string(types.PhaseImplement),
+		spec.Requirements[0].Type,
+	)
+	assert.Equal(
+		t,
+		"implementation done",
+		spec.Requirements[0].Description,
+	)
+}
+
+func TestFusionEngine_BuildSpecification(t *testing.T) {
+	e := newTestEngine()
+
+	result := &types.FlowResult{
+		FlowID:              "hsf-abc12345",
+		OverallQualityScore: 0.85,
+		PhaseResults: []types.PhaseResult{
+			{
+				Phase:  types.PhaseSpecify,
+				Output: "spec text",
+			},
+			{
+				Phase:  types.PhasePlan,
+				Output: "",
+			},
+			{
+				Phase:  types.PhaseImplement,
+				Output: "impl text",
+			},
+		},
+	}
+
+	spec := e.buildSpecification("the request", result)
+	require.NotNil(t, spec)
+	assert.Equal(t, "spec-hsf-abc12345", spec.ID)
+	assert.Equal(t, "the request", spec.Title)
+	assert.Equal(t, types.SourceFusion, spec.Source)
+	assert.InDelta(t, 0.85, spec.QualityScore, 0.001)
+	// Empty output phases should be excluded
+	require.Len(t, spec.Requirements, 2)
+	assert.Equal(
+		t, "req-specify", spec.Requirements[0].ID,
+	)
+	assert.Equal(
+		t, "req-implement", spec.Requirements[1].ID,
+	)
+}
+
+func TestFusionEngine_BuildTasksFromPhases(t *testing.T) {
+	e := newTestEngine()
+
+	phases := []types.PhaseResult{
+		{Phase: types.PhaseSpecify, Output: "spec out"},
+		{Phase: types.PhasePlan, Output: ""},
+		{Phase: types.PhaseImplement, Output: "impl out"},
+	}
+
+	tasks := e.buildTasksFromPhases(phases)
+	// Empty output phases should be excluded
+	require.Len(t, tasks, 2)
+	assert.Equal(t, "task-specify", tasks[0].ID)
+	assert.Equal(
+		t, "Execute specify", tasks[0].Name,
+	)
+	assert.Equal(t, "spec out", tasks[0].Description)
+	assert.Equal(t, "medium", tasks[0].Priority)
+	assert.Equal(t, "pending", tasks[0].Status)
+	assert.Equal(t, "task-implement", tasks[1].ID)
+}
+
+func TestFusionEngine_BuildTasksFromPhases_Empty(t *testing.T) {
+	e := newTestEngine()
+	tasks := e.buildTasksFromPhases(nil)
+	assert.Empty(t, tasks)
+}
+
+func TestFusionEngine_BuildTasksFromPhases_AllEmpty(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	phases := []types.PhaseResult{
+		{Phase: types.PhaseSpecify, Output: ""},
+		{Phase: types.PhasePlan, Output: ""},
+	}
+	tasks := e.buildTasksFromPhases(phases)
+	assert.Empty(t, tasks)
+}
+
+func TestFusionEngine_ExecuteFlow_GSDCreateError(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	mockSK := &mockSpecKitPillar{
+		phases: map[types.SpecKitPhase]*types.PhaseResult{
+			types.PhaseSpecify: {
+				Phase:        types.PhaseSpecify,
+				Success:      true,
+				Output:       "spec",
+				QualityScore: 0.8,
+			},
+			types.PhasePlan: {
+				Phase:        types.PhasePlan,
+				Success:      true,
+				Output:       "plan",
+				QualityScore: 0.8,
+			},
+			types.PhaseImplement: {
+				Phase:        types.PhaseImplement,
+				Success:      true,
+				Output:       "impl",
+				QualityScore: 0.8,
+			},
+		},
+	}
+	e.RegisterSpecKit(mockSK)
+
+	sp := &mockSuperPillar{
+		dispatchResults: []types.TaskResult{
+			{TaskID: "t1", Success: true},
+		},
+	}
+	e.RegisterSuperpowers(sp)
+
+	gsd := &mockGSDPillar{
+		createErr: fmt.Errorf("milestone creation failed"),
+	}
+	e.RegisterGSD(gsd)
+
+	classification := &types.EffortClassification{
+		Level:         types.EffortMedium,
+		CeremonyLevel: types.CeremonyLight,
+	}
+
+	// GSD error should not fail the flow
+	result, err := e.ExecuteFlow(
+		ctx, "task with gsd error", classification,
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Empty(t, result.Milestones)
+}
+
+func TestFusionEngine_ExecuteFlow_ReviewCodeError(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	mockSK := &mockSpecKitPillar{
+		phases: map[types.SpecKitPhase]*types.PhaseResult{
+			types.PhaseSpecify: {
+				Phase:        types.PhaseSpecify,
+				Success:      true,
+				Output:       "spec",
+				QualityScore: 0.8,
+			},
+			types.PhasePlan: {
+				Phase:        types.PhasePlan,
+				Success:      true,
+				Output:       "plan",
+				QualityScore: 0.8,
+			},
+			types.PhaseImplement: {
+				Phase:        types.PhaseImplement,
+				Success:      true,
+				Output:       "impl",
+				QualityScore: 0.8,
+			},
+		},
+	}
+	e.RegisterSpecKit(mockSK)
+
+	sp := &mockSuperPillar{
+		dispatchResults: []types.TaskResult{
+			{TaskID: "t1", Success: true},
+		},
+		reviewErr: fmt.Errorf("review failed"),
+	}
+	e.RegisterSuperpowers(sp)
+
+	classification := &types.EffortClassification{
+		Level:         types.EffortMedium,
+		CeremonyLevel: types.CeremonyLight,
+	}
+
+	// Review error should not fail the flow
+	result, err := e.ExecuteFlow(
+		ctx, "task with review error", classification,
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	_, hasReviewScore := result.Metadata["review_score"]
+	assert.False(t, hasReviewScore)
 }

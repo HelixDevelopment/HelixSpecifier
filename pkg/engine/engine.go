@@ -27,16 +27,17 @@ import (
 // flow. It fuses SpecKit (7-phase SDD), Superpowers (TDD and
 // subagents), and GSD (milestone lifecycle) into a unified engine.
 type FusionEngine struct {
-	cfg      *config.Config
-	logger   *logrus.Logger
-	speckit  types.SpecKitPillar
-	powers   types.SuperpowersPillar
-	gsd      types.GSDPillar
-	ceremony types.CeremonyScaler
-	memory   types.SpecMemory
-	adapters map[string]types.CLIAgentAdapter
-	flows    map[string]*types.FlowResult
-	mu       sync.RWMutex
+	cfg        *config.Config
+	logger     *logrus.Logger
+	speckit    types.SpecKitPillar
+	powers     types.SuperpowersPillar
+	gsd        types.GSDPillar
+	ceremony   types.CeremonyScaler
+	memory     types.SpecMemory
+	classifier types.EffortClassifierFunc
+	adapters   map[string]types.CLIAgentAdapter
+	flows      map[string]*types.FlowResult
+	mu         sync.RWMutex
 }
 
 // New creates a new FusionEngine with the given configuration
@@ -91,6 +92,15 @@ func (e *FusionEngine) RegisterAdapter(
 	e.adapters[name] = adapter
 }
 
+// RegisterClassifier registers the effort classifier function.
+// When registered, ClassifyEffort delegates to this function
+// instead of using the default medium-effort fallback.
+func (e *FusionEngine) RegisterClassifier(
+	fn types.EffortClassifierFunc,
+) {
+	e.classifier = fn
+}
+
 // SetDebateFunc injects a debate execution function into the
 // SpecKit pillar. This allows the host system (e.g. HelixAgent's
 // debate service) to provide real multi-LLM debate capability.
@@ -124,6 +134,8 @@ func (e *FusionEngine) Health(ctx context.Context) error {
 }
 
 // ClassifyEffort determines the effort level for a request.
+// It delegates to the registered classifier if available,
+// otherwise falls back to a default medium-effort classification.
 // It returns an error if the request is empty.
 func (e *FusionEngine) ClassifyEffort(
 	ctx context.Context,
@@ -133,22 +145,30 @@ func (e *FusionEngine) ClassifyEffort(
 		return nil, fmt.Errorf("empty request")
 	}
 
-	classification := &types.EffortClassification{
-		Level:      types.EffortMedium,
-		Confidence: 0.5,
-		Signals:    []string{"default_classification"},
-		Reasoning:  "Default medium effort classification",
-	}
+	var classification *types.EffortClassification
 
-	// Determine ceremony level from effort
-	classification.CeremonyLevel = types.CeremonyForEffort(
-		classification.Level,
-	)
-	classification.RequiresDebate =
-		classification.Level != types.EffortQuick
-	classification.RequiresSpecKit =
-		classification.Level == types.EffortLarge ||
-			classification.Level == types.EffortEpic
+	// Use registered classifier if available
+	if e.classifier != nil {
+		classification = e.classifier(request)
+	} else {
+		// Fallback to default
+		classification = &types.EffortClassification{
+			Level:      types.EffortMedium,
+			Confidence: 0.5,
+			Signals:    []string{"default_classification"},
+			Reasoning: "Default medium effort " +
+				"classification",
+		}
+		classification.CeremonyLevel =
+			types.CeremonyForEffort(
+				classification.Level,
+			)
+		classification.RequiresDebate =
+			classification.Level != types.EffortQuick
+		classification.RequiresSpecKit =
+			classification.Level == types.EffortLarge ||
+				classification.Level == types.EffortEpic
+	}
 
 	// Apply ceremony scaler if registered
 	if e.ceremony != nil {
@@ -263,6 +283,65 @@ func (e *FusionEngine) ExecuteFlow(
 			float64(len(result.PhaseResults))
 	}
 
+	// Build specification from phase outputs
+	spec := e.buildSpecification(request, result)
+	result.Specification = spec
+
+	// Execute tasks via Superpowers if registered
+	if e.powers != nil && len(phases) > 1 {
+		tasks := e.buildTasksFromPhases(
+			result.PhaseResults,
+		)
+		if len(tasks) > 0 {
+			taskResults, dispErr := e.powers.DispatchSubagents(
+				ctx, tasks, e.cfg.MaxParallelAgents,
+			)
+			if dispErr != nil {
+				e.logger.WithError(dispErr).Warn(
+					"[HelixSpecifier] Superpowers " +
+						"dispatch failed",
+				)
+			} else {
+				// Review completed tasks
+				review, revErr := e.powers.ReviewCode(
+					ctx, taskResults,
+				)
+				if revErr == nil && review != nil {
+					result.Metadata["review_score"] =
+						review.Score
+					result.Metadata["review_approved"] =
+						review.Approved
+				}
+			}
+
+			// Create milestones via GSD if registered
+			if e.gsd != nil && spec != nil {
+				milestones, msErr := e.gsd.CreateMilestones(
+					ctx, spec, tasks,
+				)
+				if msErr == nil {
+					result.Milestones = milestones
+					// Track progress
+					if len(milestones) > 0 &&
+						len(taskResults) > 0 {
+						e.gsd.TrackProgress(
+							ctx,
+							milestones[0].ID,
+							taskResults,
+						)
+					}
+				}
+			}
+		}
+	}
+
+	// Set final artifact from last phase output
+	if len(result.PhaseResults) > 0 {
+		lastIdx := len(result.PhaseResults) - 1
+		result.FinalArtifact =
+			result.PhaseResults[lastIdx].Output
+	}
+
 	result.Success = true
 	result.EndTime = time.Now()
 	result.Duration = time.Since(startTime)
@@ -341,6 +420,65 @@ func (e *FusionEngine) GetAdapter(
 		return nil, fmt.Errorf("adapter %s not found", name)
 	}
 	return adapter, nil
+}
+
+// buildSpecification creates a Specification from flow results.
+func (e *FusionEngine) buildSpecification(
+	request string,
+	result *types.FlowResult,
+) *types.Specification {
+	now := time.Now()
+	spec := &types.Specification{
+		ID: fmt.Sprintf("spec-%s", result.FlowID),
+		Title:       request,
+		Description: request,
+		Source:      types.SourceFusion,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		QualityScore: result.OverallQualityScore,
+	}
+
+	// Extract phase outputs into requirements
+	for _, pr := range result.PhaseResults {
+		if pr.Output != "" {
+			spec.Requirements = append(
+				spec.Requirements,
+				types.Requirement{
+					ID: fmt.Sprintf(
+						"req-%s", pr.Phase,
+					),
+					Type:        string(pr.Phase),
+					Description: pr.Output,
+					Priority:    "medium",
+				},
+			)
+		}
+	}
+
+	return spec
+}
+
+// buildTasksFromPhases creates tasks from phase results.
+func (e *FusionEngine) buildTasksFromPhases(
+	phases []types.PhaseResult,
+) []types.Task {
+	tasks := make([]types.Task, 0, len(phases))
+	for _, pr := range phases {
+		if pr.Output != "" {
+			tasks = append(tasks, types.Task{
+				ID: fmt.Sprintf(
+					"task-%s", pr.Phase,
+				),
+				Name: fmt.Sprintf(
+					"Execute %s", pr.Phase,
+				),
+				Description: pr.Output,
+				Priority:    "medium",
+				Status:      "pending",
+			})
+		}
+	}
+	return tasks
 }
 
 // executePhase runs a single SpecKit phase with the configured

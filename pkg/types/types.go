@@ -109,6 +109,13 @@ const (
 	SourceUser SpecSource = "user"
 )
 
+// EffortClassifierFunc is a function that classifies request
+// effort. It is used by the FusionEngine to delegate effort
+// classification to an external classifier (e.g. intent pkg).
+type EffortClassifierFunc func(
+	request string,
+) *EffortClassification
+
 // DebateFunc is the signature for debate execution functions
 // that can be injected into the SpecKit pillar.
 type DebateFunc func(

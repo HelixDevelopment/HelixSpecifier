@@ -91,6 +91,19 @@ func (e *FusionEngine) RegisterAdapter(
 	e.adapters[name] = adapter
 }
 
+// SetDebateFunc injects a debate execution function into the
+// SpecKit pillar. This allows the host system (e.g. HelixAgent's
+// debate service) to provide real multi-LLM debate capability.
+func (e *FusionEngine) SetDebateFunc(fn types.DebateFunc) {
+	if setter, ok := e.speckit.(types.DebateFuncSetter); ok {
+		setter.SetDebateFunc(fn)
+		e.logger.Info(
+			"[HelixSpecifier] Debate function injected " +
+				"into SpecKit pillar",
+		)
+	}
+}
+
 // Name returns the engine name.
 func (e *FusionEngine) Name() string {
 	return "HelixSpecifier"

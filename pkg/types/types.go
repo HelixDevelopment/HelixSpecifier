@@ -109,6 +109,21 @@ const (
 	SourceUser SpecSource = "user"
 )
 
+// DebateFunc is the signature for debate execution functions
+// that can be injected into the SpecKit pillar.
+type DebateFunc func(
+	ctx context.Context,
+	topic string,
+	rounds int,
+	metadata map[string]interface{},
+) (output string, score float64, debateID string, err error)
+
+// DebateFuncSetter is an optional interface for pillars that
+// accept an external debate execution function.
+type DebateFuncSetter interface {
+	SetDebateFunc(fn DebateFunc)
+}
+
 // --- Core Data Structures ---
 
 // EffortClassification holds the result of effort analysis.

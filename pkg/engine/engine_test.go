@@ -781,6 +781,89 @@ func TestFusionEngine_ExecuteFlow_PhaseBelowQualityThreshold(
 	assert.InDelta(t, 0.2, result.OverallQualityScore, 0.001)
 }
 
+// mockDebatablePillar implements both SpecKitPillar and
+// DebateFuncSetter.
+type mockDebatablePillar struct {
+	mockSpecKitPillar
+	debateFunc types.DebateFunc
+}
+
+func (m *mockDebatablePillar) SetDebateFunc(
+	fn types.DebateFunc,
+) {
+	m.debateFunc = fn
+}
+
+func TestFusionEngine_SetDebateFunc_Supported(t *testing.T) {
+	e := newTestEngine()
+	pillar := &mockDebatablePillar{
+		mockSpecKitPillar: mockSpecKitPillar{
+			phases: make(
+				map[types.SpecKitPhase]*types.PhaseResult,
+			),
+		},
+	}
+	e.RegisterSpecKit(pillar)
+
+	called := false
+	fn := func(
+		_ context.Context,
+		_ string,
+		_ int,
+		_ map[string]interface{},
+	) (string, float64, string, error) {
+		called = true
+		return "debated", 0.95, "d-1", nil
+	}
+
+	e.SetDebateFunc(fn)
+	assert.NotNil(t, pillar.debateFunc)
+
+	// Invoke through the pillar to verify injection
+	out, score, id, err := pillar.debateFunc(
+		context.Background(), "topic", 3, nil,
+	)
+	assert.NoError(t, err)
+	assert.True(t, called)
+	assert.Equal(t, "debated", out)
+	assert.Equal(t, 0.95, score)
+	assert.Equal(t, "d-1", id)
+}
+
+func TestFusionEngine_SetDebateFunc_NotSupported(t *testing.T) {
+	e := newTestEngine()
+	// mockSpecKitPillar does NOT implement DebateFuncSetter
+	pillar := &mockSpecKitPillar{
+		phases: make(
+			map[types.SpecKitPhase]*types.PhaseResult,
+		),
+	}
+	e.RegisterSpecKit(pillar)
+
+	// Should not panic; just silently skip injection
+	e.SetDebateFunc(func(
+		_ context.Context,
+		_ string,
+		_ int,
+		_ map[string]interface{},
+	) (string, float64, string, error) {
+		return "", 0, "", nil
+	})
+}
+
+func TestFusionEngine_SetDebateFunc_NilSpecKit(t *testing.T) {
+	e := newTestEngine()
+	// No SpecKit registered -- should not panic
+	e.SetDebateFunc(func(
+		_ context.Context,
+		_ string,
+		_ int,
+		_ map[string]interface{},
+	) (string, float64, string, error) {
+		return "", 0, "", nil
+	})
+}
+
 func TestFusionEngine_ExecuteFlow_FlowMetadata(t *testing.T) {
 	e := newTestEngine()
 	ctx := context.Background()

@@ -17,12 +17,7 @@ type Pillar struct {
 	logger *logrus.Logger
 	// DebateFunc is called to execute a debate for a phase.
 	// This allows injection of the actual debate service.
-	DebateFunc func(
-		ctx context.Context,
-		topic string,
-		rounds int,
-		metadata map[string]interface{},
-	) (string, float64, string, error) // output, score, debateID, err
+	DebateFunc types.DebateFunc
 }
 
 // NewPillar creates a new SpecKit pillar
@@ -36,13 +31,8 @@ func NewPillar(
 	}
 }
 
-// SetDebateFunc sets the debate execution function
-func (p *Pillar) SetDebateFunc(fn func(
-	ctx context.Context,
-	topic string,
-	rounds int,
-	metadata map[string]interface{},
-) (string, float64, string, error)) {
+// SetDebateFunc sets the debate execution function.
+func (p *Pillar) SetDebateFunc(fn types.DebateFunc) {
 	p.DebateFunc = fn
 }
 

@@ -95,6 +95,12 @@ go1.24.11)
 | 19 | `cross_project` | `pkg/features/cross_project` | Cross-project knowledge transfer engine |
 | 20 | `adaptive_ceremony` | `pkg/features/adaptive_ceremony` | Dynamic ceremony adjustment from real-time quality metrics |
 | 21 | `spec_memory` | `pkg/features/spec_memory` | Persistent spec memory index with access tracking |
+| 22 | `integration` | `tests/integration` | Cross-package workflow and lifecycle tests |
+| 23 | `e2e` | `tests/e2e` | Full user workflow simulation tests |
+| 24 | `security` | `tests/security` | Security validation and penetration tests |
+| 25 | `stress` | `tests/stress` | Concurrent load and saturation tests |
+| 26 | `benchmark` | `tests/benchmark` | Performance measurement benchmarks |
+| 27 | `automation` | `tests/automation` | Project structure and API contract verification |
 
 ## Build & Test
 
@@ -110,15 +116,38 @@ go tool cover -html=coverage.out -o coverage.html # HTML report
 Use the Makefile for convenience:
 
 ```bash
-make build       # Build all packages
-make test        # Run tests (resource-limited)
-make test-race   # Tests with race detector
-make test-cover  # Coverage with HTML report
-make test-bench  # Benchmarks
-make fmt         # gofmt + goimports
-make vet         # go vet
-make lint        # golangci-lint
+make build          # Build all packages
+make test           # Run tests (resource-limited)
+make test-unit      # Unit tests only (pkg/*)
+make test-integration # Integration tests
+make test-e2e       # End-to-end tests
+make test-security  # Security tests
+make test-stress    # Stress tests
+make test-automation # Automation tests
+make test-all       # All tests (explicit alias for test)
+make test-race      # Tests with race detector
+make test-cover     # Coverage with HTML report
+make test-bench     # Benchmarks
+make test-bench-full # Benchmarks with 1s benchtime
+make fmt            # gofmt + goimports
+make vet            # go vet
+make lint           # golangci-lint
 ```
+
+## Test Suites
+
+| Suite | Location | Functions | Purpose |
+|-------|----------|-----------|---------|
+| Unit | `pkg/*/` | ~60 | Per-package unit tests with table-driven design |
+| Integration | `tests/integration/` | 26 | Cross-package workflow validation |
+| E2E | `tests/e2e/` | 18 | Full user workflow simulation |
+| Security | `tests/security/` | 26 | Input validation, resource exhaustion, thread safety |
+| Stress | `tests/stress/` | 12 | Concurrent load, deadlock detection, saturation |
+| Benchmark | `tests/benchmark/` | 22 | Performance measurement across all components |
+| Automation | `tests/automation/` | 14 | Project structure, API contracts, build verification |
+
+All test suites enforce resource limits per HelixAgent policy:
+`runtime.GOMAXPROCS(2)` in `init()`, `-p 1` for sequential packages.
 
 ## Key Interfaces
 

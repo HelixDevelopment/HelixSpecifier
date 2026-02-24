@@ -155,7 +155,7 @@ Formatted Output --> CLI Agent
 
 ### Package Overview
 
-The module contains 21 packages:
+The module contains 27 packages (21 core + 6 test suites):
 
 - **Core**: `types`, `config`, `engine`
 - **Pillars**: `speckit`, `superpowers`, `gsd`
@@ -165,6 +165,8 @@ The module contains 21 packages:
   `nyquist_tdd`, `debate_architecture`, `skill_learning`,
   `brownfield`, `predictive_spec`, `cross_project`,
   `adaptive_ceremony`, `spec_memory`
+- **Tests**: `integration`, `e2e`, `security`, `stress`,
+  `benchmark`, `automation`
 
 ## Installation
 
@@ -212,14 +214,25 @@ descriptions.
 
 ## Testing
 
-Run tests with resource limits (required by HelixAgent policy):
+773 tests across 7 test suites, all race-detector clean.
+
+| Suite | Command | Tests | Purpose |
+|-------|---------|-------|---------|
+| Unit | `make test-unit` | ~60 | Per-package unit tests |
+| Integration | `make test-integration` | 26 | Cross-package workflows |
+| E2E | `make test-e2e` | 18 | Full user workflow simulation |
+| Security | `make test-security` | 26 | Input validation, thread safety |
+| Stress | `make test-stress` | 12 | Concurrent load, deadlocks |
+| Benchmark | `make test-bench` | 22 | Performance measurement |
+| Automation | `make test-automation` | 14 | Structure, API contracts |
+
+Run all tests with resource limits (required by HelixAgent policy):
 
 ```bash
 make test           # All tests, resource-limited
 make test-race      # With race detector
 make test-cover     # Coverage report
-make test-bench     # Benchmarks
-make test-verbose   # Verbose output
+make test-all       # Explicit all-tests alias
 ```
 
 Or directly:

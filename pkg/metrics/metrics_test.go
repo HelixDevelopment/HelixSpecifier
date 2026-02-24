@@ -170,6 +170,53 @@ func TestMetrics_Snapshot(t *testing.T) {
 	assert.Equal(t, int64(2), m.FlowsStarted)
 }
 
+func TestMetrics_Snapshot_AllMaps(t *testing.T) {
+	m := NewMetrics()
+	m.RecordFlowStart(types.EffortLarge)
+	m.RecordFlowComplete(&types.FlowResult{
+		Success:       true,
+		Duration:      1 * time.Second,
+		CeremonyLevel: types.CeremonyStandard,
+	})
+	m.RecordPhase(&types.PhaseResult{
+		Phase:        types.PhaseSpecify,
+		Success:      true,
+		QualityScore: 0.9,
+	})
+
+	snap := m.Snapshot()
+
+	// Verify all maps are independent copies
+	assert.Equal(t, int64(1), snap.FlowsStarted)
+	assert.Equal(t, int64(1), snap.FlowsCompleted)
+	assert.Equal(t, int64(1), snap.PhasesExecuted)
+
+	// Effort counts present
+	assert.Equal(t,
+		int64(1), snap.EffortCounts[types.EffortLarge],
+	)
+
+	// Ceremony counts present
+	assert.Equal(t,
+		int64(1),
+		snap.CeremonyCounts[types.CeremonyStandard],
+	)
+
+	// Phase metrics present
+	pm := snap.PhaseMetrics[types.PhaseSpecify]
+	require.NotNil(t, pm)
+	assert.Equal(t, int64(1), pm.Executions)
+
+	// Mutating original maps should not affect snapshot
+	m.RecordFlowComplete(&types.FlowResult{
+		Success:       false,
+		CeremonyLevel: types.CeremonyHeavy,
+	})
+	assert.Equal(t, int64(1), snap.FlowsCompleted)
+	_, hasCeremony := snap.CeremonyCounts[types.CeremonyHeavy]
+	assert.False(t, hasCeremony)
+}
+
 func TestMetrics_ConcurrentAccess(t *testing.T) {
 	m := NewMetrics()
 	var wg sync.WaitGroup

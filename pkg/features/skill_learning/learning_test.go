@@ -58,6 +58,14 @@ func TestLearner_RecordUsage_NotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestLearner_GetSkill_NotFound(t *testing.T) {
+	l := NewLearner()
+	skill, err := l.GetSkill("nonexistent")
+	require.Error(t, err)
+	assert.Nil(t, skill)
+	assert.Contains(t, err.Error(), "not found")
+}
+
 func TestLearner_TopSkills(t *testing.T) {
 	l := NewLearner()
 	_ = l.RegisterSkill(Skill{
@@ -73,4 +81,25 @@ func TestLearner_TopSkills(t *testing.T) {
 	top := l.TopSkills(2)
 	assert.Len(t, top, 2)
 	assert.Equal(t, "s2", top[0].ID)
+}
+
+func TestLearner_TopSkills_LimitExceedsCount(t *testing.T) {
+	l := NewLearner()
+	_ = l.RegisterSkill(Skill{
+		ID: "s1", Name: "A", Proficiency: 0.6,
+	})
+	_ = l.RegisterSkill(Skill{
+		ID: "s2", Name: "B", Proficiency: 0.9,
+	})
+
+	// Requesting more than available
+	top := l.TopSkills(10)
+	assert.Len(t, top, 2)
+	assert.Equal(t, "s2", top[0].ID)
+}
+
+func TestLearner_TopSkills_Empty(t *testing.T) {
+	l := NewLearner()
+	top := l.TopSkills(5)
+	assert.Empty(t, top)
 }

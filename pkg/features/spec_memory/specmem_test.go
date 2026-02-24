@@ -1,6 +1,7 @@
 package spec_memory
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -60,6 +61,59 @@ func TestIndex_Search(t *testing.T) {
 	})
 
 	results := idx.Search("database", 10)
+	assert.Len(t, results, 1)
+	assert.Equal(t, "e1", results[0].ID)
+}
+
+func TestIndex_Search_DefaultLimit(t *testing.T) {
+	idx := NewIndex()
+	_ = idx.Add(Entry{
+		ID:      "e1",
+		Title:   "Matching Entry",
+		Content: "some content",
+	})
+
+	// limit <= 0 triggers default of 10
+	results := idx.Search("matching", 0)
+	assert.Len(t, results, 1)
+}
+
+func TestIndex_Search_LimitEnforced(t *testing.T) {
+	idx := NewIndex()
+	for i := 0; i < 5; i++ {
+		_ = idx.Add(Entry{
+			ID:      fmt.Sprintf("e%d", i),
+			Title:   "Matching Title",
+			Content: "some content",
+		})
+	}
+
+	results := idx.Search("matching", 2)
+	assert.LessOrEqual(t, len(results), 2)
+	assert.Greater(t, len(results), 0)
+}
+
+func TestIndex_Search_NoMatch(t *testing.T) {
+	idx := NewIndex()
+	_ = idx.Add(Entry{
+		ID:      "e1",
+		Title:   "Something",
+		Content: "Else",
+	})
+
+	results := idx.Search("nonexistent", 10)
+	assert.Empty(t, results)
+}
+
+func TestIndex_Search_ByContent(t *testing.T) {
+	idx := NewIndex()
+	_ = idx.Add(Entry{
+		ID:      "e1",
+		Title:   "Unrelated Title",
+		Content: "PostgreSQL migration guide",
+	})
+
+	results := idx.Search("postgresql", 10)
 	assert.Len(t, results, 1)
 	assert.Equal(t, "e1", results[0].ID)
 }

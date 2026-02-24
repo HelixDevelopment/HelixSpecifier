@@ -389,6 +389,27 @@ func TestPillar_ExecutePhase_NilMetadata(t *testing.T) {
 	assert.Equal(t, types.StageExecution, result.Stage)
 }
 
+// --- TestPillar_BuildPhaseTopic_UnknownPhase ---
+
+func TestPillar_BuildPhaseTopic_UnknownPhase(t *testing.T) {
+	p := newTestPillar()
+	input := newTestInput()
+
+	topic := p.buildPhaseTopic(
+		types.SpecKitPhase("unknown"), input,
+	)
+	assert.Contains(t, topic, "unknown")
+	assert.Contains(t, topic, input.UserRequest)
+}
+
+// --- TestPillar_PhaseToStage_UnknownPhase ---
+
+func TestPillar_PhaseToStage_UnknownPhase(t *testing.T) {
+	p := newTestPillar()
+	stage := p.phaseToStage(types.SpecKitPhase("unknown"))
+	assert.Equal(t, types.StageExecution, stage)
+}
+
 // --- TestPillar_ExecutePhase_Timing ---
 
 func TestPillar_ExecutePhase_Timing(t *testing.T) {

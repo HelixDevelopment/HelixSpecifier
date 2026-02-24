@@ -68,3 +68,27 @@ func TestAnalyzer_HasPattern(t *testing.T) {
 	assert.True(t, a.HasPattern("facade"))
 	assert.False(t, a.HasPattern("missing"))
 }
+
+func TestAnalyzer_HasPattern_CaseInsensitiveLoop(
+	t *testing.T,
+) {
+	a := NewAnalyzer()
+	// Store with mixed case -- ToLower("FACADE") = "facade"
+	// won't match "Facade" key directly, falls to loop
+	_ = a.RecordPattern("Facade", 0.85)
+	assert.True(t, a.HasPattern("FACADE"))
+}
+
+func TestAnalyzer_HasPattern_ExactLowerMatch(t *testing.T) {
+	a := NewAnalyzer()
+	// Store with lowercase key -- direct map lookup succeeds
+	_ = a.RecordPattern("observer", 0.7)
+	assert.True(t, a.HasPattern("observer"))
+	assert.True(t, a.HasPattern("Observer"))
+	assert.True(t, a.HasPattern("OBSERVER"))
+}
+
+func TestAnalyzer_HasPattern_Empty(t *testing.T) {
+	a := NewAnalyzer()
+	assert.False(t, a.HasPattern("anything"))
+}

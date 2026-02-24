@@ -92,6 +92,38 @@ func TestStore_Search_Limit(t *testing.T) {
 	assert.Len(t, results, 5)
 }
 
+func TestStore_Search_DefaultLimit(t *testing.T) {
+	s := NewStore()
+	ctx := context.Background()
+
+	_ = s.Store(ctx, &types.Specification{
+		ID:          "spec-1",
+		Title:       "Auth",
+		Description: "Authentication module",
+	})
+
+	// limit <= 0 triggers default of 10
+	results, err := s.Search(ctx, "auth", 0)
+	require.NoError(t, err)
+	assert.Len(t, results, 1)
+}
+
+func TestStore_Search_ByDescription(t *testing.T) {
+	s := NewStore()
+	ctx := context.Background()
+
+	_ = s.Store(ctx, &types.Specification{
+		ID:          "spec-1",
+		Title:       "Module A",
+		Description: "Handles PostgreSQL connections",
+	})
+
+	results, err := s.Search(ctx, "postgresql", 10)
+	require.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.Equal(t, "spec-1", results[0].ID)
+}
+
 func TestStore_LearnFromFlow_Success(t *testing.T) {
 	s := NewStore()
 	ctx := context.Background()

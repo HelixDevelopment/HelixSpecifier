@@ -100,6 +100,52 @@ func TestGenericAdapter_FormatOutput_JSON(t *testing.T) {
 	assert.Contains(t, output, "\"success\": true")
 }
 
+func TestGenericAdapter_FormatOutput_GitHub(t *testing.T) {
+	a := NewGenericAdapter("copilot", CategoryGitHub)
+	result := &types.FlowResult{
+		FlowID:        "hsf-gh1",
+		EffortLevel:   types.EffortMedium,
+		CeremonyLevel: types.CeremonyLight,
+		Success:       true,
+	}
+
+	// GitHub falls through to default (JSON)
+	output, err := a.FormatOutput(result)
+	require.NoError(t, err)
+	assert.Contains(t, output, "hsf-gh1")
+}
+
+func TestGenericAdapter_FormatOutput_Minimal(t *testing.T) {
+	a := NewGenericAdapter("minimal", CategoryMinimal)
+	result := &types.FlowResult{
+		FlowID:        "hsf-min1",
+		EffortLevel:   types.EffortQuick,
+		CeremonyLevel: types.CeremonyMinimal,
+		Success:       true,
+	}
+
+	// Minimal falls through to default (JSON)
+	output, err := a.FormatOutput(result)
+	require.NoError(t, err)
+	assert.Contains(t, output, "hsf-min1")
+}
+
+func TestGenericAdapter_FormatJSON_MarshalError(
+	t *testing.T,
+) {
+	a := NewGenericAdapter("test", CategoryGeneric)
+	result := &types.FlowResult{
+		FlowID: "hsf-err",
+		Metadata: map[string]interface{}{
+			"bad": make(chan int),
+		},
+	}
+
+	_, err := a.FormatOutput(result)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "json marshal")
+}
+
 func TestGenericAdapter_ImplementsInterface(t *testing.T) {
 	a := NewGenericAdapter("test", CategoryGeneric)
 	// Compile-time check

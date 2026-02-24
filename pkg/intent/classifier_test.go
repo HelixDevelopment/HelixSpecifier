@@ -171,6 +171,18 @@ func TestClassifier_Classify_EmptyRequest(t *testing.T) {
 	assert.Empty(t, result.Signals)
 }
 
+func TestClassifier_GenerateReasoning_UnknownLevel(
+	t *testing.T,
+) {
+	c := NewClassifier()
+	// Directly invoke generateReasoning with an unknown level
+	cl := &types.EffortClassification{
+		Level: types.EffortLevel("unknown"),
+	}
+	reasoning := c.generateReasoning(cl)
+	assert.Equal(t, "Unknown effort level", reasoning)
+}
+
 func TestClassifier_Classify_TableDriven(t *testing.T) {
 	c := NewClassifier()
 

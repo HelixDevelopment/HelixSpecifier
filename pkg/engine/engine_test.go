@@ -746,6 +746,41 @@ func TestFusionEngine_ResumeFlow_InProgress(t *testing.T) {
 	assert.Len(t, resumed.PhaseResults, 1)
 }
 
+func TestFusionEngine_ExecuteFlow_PhaseBelowQualityThreshold(
+	t *testing.T,
+) {
+	e := newTestEngine()
+	ctx := context.Background()
+
+	// Mock that returns a low quality score
+	mockSK := &mockSpecKitPillar{
+		phases: map[types.SpecKitPhase]*types.PhaseResult{
+			types.PhaseImplement: {
+				Phase:        types.PhaseImplement,
+				StartTime:    time.Now(),
+				EndTime:      time.Now(),
+				Duration:     50 * time.Millisecond,
+				Success:      true,
+				Output:       "low quality output",
+				QualityScore: 0.2, // Below default 0.5
+			},
+		},
+	}
+	e.RegisterSpecKit(mockSK)
+
+	classification := &types.EffortClassification{
+		Level:         types.EffortQuick,
+		CeremonyLevel: types.CeremonyMinimal,
+	}
+
+	result, err := e.ExecuteFlow(
+		ctx, "low quality task", classification,
+	)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.InDelta(t, 0.2, result.OverallQualityScore, 0.001)
+}
+
 func TestFusionEngine_ExecuteFlow_FlowMetadata(t *testing.T) {
 	e := newTestEngine()
 	ctx := context.Background()

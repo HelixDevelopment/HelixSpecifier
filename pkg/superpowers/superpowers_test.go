@@ -316,6 +316,27 @@ func TestPillar_ConcurrentDispatch(t *testing.T) {
 		"All goroutines should complete all tasks")
 }
 
+// --- TestPillar_DispatchSubagents_ContextCancel ---
+
+func TestPillar_DispatchSubagents_ContextCancel(t *testing.T) {
+	p := newTestPillar()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Cancel immediately before dispatch
+	cancel()
+
+	tasks := makeTasks(10)
+	results, err := p.DispatchSubagents(ctx, tasks, 2)
+
+	// At least some goroutines should hit the cancelled context
+	// The function returns firstErr which captures ctx.Err()
+	if err != nil {
+		assert.ErrorIs(t, err, context.Canceled)
+	}
+	// Results slice is always allocated to len(tasks)
+	assert.Len(t, results, len(tasks))
+}
+
 // --- TestPillar_ExecuteWithTDD_FilesChanged ---
 
 func TestPillar_ExecuteWithTDD_FilesChanged(t *testing.T) {

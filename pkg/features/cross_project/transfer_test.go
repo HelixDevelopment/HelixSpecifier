@@ -1,6 +1,7 @@
 package cross_project
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -69,6 +70,64 @@ func TestTransferEngine_Search_ByTag(t *testing.T) {
 
 	results := te.Search("database", 10)
 	assert.Len(t, results, 1)
+}
+
+func TestTransferEngine_Search_DefaultLimit(t *testing.T) {
+	te := NewTransferEngine()
+	_ = te.Add(Knowledge{
+		ID:      "k1",
+		Project: "P1",
+		Content: "matching content",
+	})
+
+	// limit <= 0 triggers default of 10
+	results := te.Search("matching", 0)
+	assert.Len(t, results, 1)
+}
+
+func TestTransferEngine_Search_LimitEnforced(t *testing.T) {
+	te := NewTransferEngine()
+	for i := 0; i < 5; i++ {
+		_ = te.Add(Knowledge{
+			ID:      fmt.Sprintf("k%d", i),
+			Project: "P1",
+			Content: "matching content",
+		})
+	}
+
+	results := te.Search("matching", 2)
+	assert.Len(t, results, 2)
+}
+
+func TestTransferEngine_Search_TagMatchLimitBreak(
+	t *testing.T,
+) {
+	te := NewTransferEngine()
+	// Entry matched via tag, not content
+	for i := 0; i < 3; i++ {
+		_ = te.Add(Knowledge{
+			ID:      fmt.Sprintf("k%d", i),
+			Project: "P1",
+			Content: "unrelated content",
+			Tags:    []string{"target"},
+		})
+	}
+
+	results := te.Search("target", 2)
+	assert.Len(t, results, 2)
+}
+
+func TestTransferEngine_Search_NoMatch(t *testing.T) {
+	te := NewTransferEngine()
+	_ = te.Add(Knowledge{
+		ID:      "k1",
+		Project: "P1",
+		Content: "something else",
+		Tags:    []string{"other"},
+	})
+
+	results := te.Search("nonexistent", 10)
+	assert.Empty(t, results)
 }
 
 func TestTransferEngine_ForProject(t *testing.T) {

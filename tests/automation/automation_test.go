@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -276,6 +277,62 @@ func TestAutomation_InterfaceContracts(t *testing.T) {
 		require.NotNil(t, a)
 		assert.Equal(t, "test-agent", a.GetAgentType())
 		assert.True(t, a.SupportsStreaming())
+	})
+
+	t.Run("DebateFuncSetter_SpecKitPillar", func(t *testing.T) {
+		p := speckit.NewPillar(cfg, logger)
+		require.NotNil(t, p)
+
+		// Verify *speckit.Pillar implements DebateFuncSetter
+		var setter types.DebateFuncSetter = p
+		require.NotNil(t, setter)
+
+		// Verify SetDebateFunc is callable
+		called := false
+		setter.SetDebateFunc(func(
+			ctx context.Context,
+			topic string,
+			rounds int,
+			metadata map[string]interface{},
+		) (string, float64, string, error) {
+			called = true
+			return "output", 0.9, "dbg-1", nil
+		})
+
+		// Execute a phase to confirm the func was set
+		result, err := p.ExecutePhase(
+			context.Background(),
+			types.PhaseSpecify,
+			&types.PhaseInput{
+				UserRequest: "test request",
+			},
+		)
+		require.NoError(t, err)
+		assert.True(t, called,
+			"debate func must be called after injection",
+		)
+		assert.Equal(t, 0.9, result.QualityScore)
+	})
+
+	t.Run("EffortClassifierFunc_Signature", func(t *testing.T) {
+		c := intent.NewClassifier()
+		require.NotNil(t, c)
+
+		// Verify Classifier.Classify is assignable to
+		// types.EffortClassifierFunc
+		var fn types.EffortClassifierFunc = c.Classify
+		require.NotNil(t, fn)
+
+		// Invoke the func and verify the result
+		result := fn("implement new auth service with database")
+		require.NotNil(t, result)
+		assert.NotEmpty(t, string(result.Level))
+		assert.Greater(t, result.Confidence, 0.0)
+		assert.NotEmpty(t, result.Reasoning)
+		assert.Equal(t,
+			types.CeremonyForEffort(result.Level),
+			result.CeremonyLevel,
+		)
 	})
 }
 

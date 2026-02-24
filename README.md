@@ -214,7 +214,8 @@ descriptions.
 
 ## Testing
 
-773 tests across 7 test suites, all race-detector clean.
+831+ tests (including subtests) across 7 test suites, all
+race-detector clean.
 
 | Suite | Command | Tests | Purpose |
 |-------|---------|-------|---------|

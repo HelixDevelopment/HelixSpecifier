@@ -161,7 +161,15 @@ Seven core interfaces defined in `pkg/types/types.go`:
 | `GSDPillar` | CreateMilestones, TrackProgress, GetProgress | Milestone lifecycle management |
 | `CeremonyScaler` | Scale, Adjust | Adaptive ceremony level determination |
 | `SpecMemory` | Store, Search, LearnFromFlow | Specification storage and learning |
+| `DebateFuncSetter` | SetDebateFunc | Optional: debate function injection |
 | `CLIAgentAdapter` | FormatOutput, ParseInput, GetAgentType, SupportsStreaming | CLI agent output formatting |
+
+### Key Types
+
+| Type | Purpose |
+|------|---------|
+| `DebateFunc` | Debate execution injection for SpecKit phases |
+| `EffortClassifierFunc` | Custom effort classification logic injection |
 
 ## Effort Levels
 
@@ -233,6 +241,58 @@ is increased.
    real-time quality metrics
 10. **Spec Memory** -- Persistent specification index with
     semantic search and access tracking
+
+## Injection Points
+
+The FusionEngine supports external dependency injection through
+three extension mechanisms:
+
+### DebateFunc
+
+The `DebateFunc` type enables injection of real debate execution
+into the SpecKit pillar. Without injection, phases produce
+placeholder output with a 0.75 quality score.
+
+```go
+type DebateFunc func(
+    ctx context.Context,
+    topic string,
+    rounds int,
+    metadata map[string]interface{},
+) (output string, score float64, debateID string, err error)
+```
+
+Injection via `FusionEngine.SetDebateFunc(fn)` delegates to the
+registered SpecKit pillar if it implements `DebateFuncSetter`.
+
+### EffortClassifierFunc
+
+The `EffortClassifierFunc` type enables custom effort
+classification logic. Without injection, `ClassifyEffort`
+defaults to medium effort.
+
+```go
+type EffortClassifierFunc func(
+    request string,
+) *EffortClassification
+```
+
+Register via `FusionEngine.RegisterClassifier(fn)`. The built-in
+`intent.Classifier.Classify` provides signal-based classification
+detecting quick/medium/large/epic effort from request keywords.
+
+### DebateFuncSetter Interface
+
+Optional interface for pillars accepting debate functions:
+
+```go
+type DebateFuncSetter interface {
+    SetDebateFunc(fn DebateFunc)
+}
+```
+
+The `speckit.Pillar` implements this interface. Custom pillar
+implementations can opt in by implementing this interface.
 
 ## Configuration
 

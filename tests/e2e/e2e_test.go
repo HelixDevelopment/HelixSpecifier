@@ -930,6 +930,109 @@ func TestE2E_ClassifyAndExecuteAllLevels(t *testing.T) {
 	}
 }
 
+// --- 19. Three-Pillar Fusion Workflow ---
+
+func TestE2E_ThreePillarFusion(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping e2e test in short mode")
+	}
+
+	cfg := config.DefaultConfig()
+	logger := newE2ELogger()
+
+	eng := engine.New(cfg, logger)
+
+	sk := speckit.NewPillar(cfg, logger)
+	sp := superpowers.NewPillar(cfg, logger)
+	g := gsd.NewPillar(logger)
+	cs := ceremony.NewScaler(cfg, logger)
+	mem := memory.NewStore()
+
+	eng.RegisterSpecKit(sk)
+	eng.RegisterSuperpowers(sp)
+	eng.RegisterGSD(g)
+	eng.RegisterCeremonyScaler(cs)
+	eng.RegisterSpecMemory(mem)
+
+	// Track debate invocations
+	debateCalls := 0
+	sk.SetDebateFunc(func(
+		ctx context.Context,
+		topic string,
+		rounds int,
+		metadata map[string]interface{},
+	) (string, float64, string, error) {
+		debateCalls++
+		return fmt.Sprintf(
+			"Debate output for %s",
+			metadata["phase"],
+		), 0.88, fmt.Sprintf("dbg-%d", debateCalls), nil
+	})
+
+	// Register the intent classifier
+	classifier := intent.NewClassifier()
+	eng.RegisterClassifier(classifier.Classify)
+
+	// Execute a "large" effort request
+	request := "implement new authentication service " +
+		"with database"
+	ctx := context.Background()
+
+	// Step 1: Classify via the engine's registered classifier
+	classification, err := eng.ClassifyEffort(ctx, request)
+	require.NoError(t, err)
+	require.NotNil(t, classification)
+
+	// Verify classification is EffortLarge
+	assert.Equal(t, types.EffortLarge, classification.Level,
+		"classifier should detect large effort from "+
+			"'implement' + 'service' + 'database'",
+	)
+
+	// Step 2: Execute the flow
+	flow, err := eng.ExecuteFlow(ctx, request, classification)
+	require.NoError(t, err)
+	require.NotNil(t, flow)
+	assert.True(t, flow.Success)
+
+	// Verify FlowResult.Specification is not nil
+	assert.NotNil(t, flow.Specification,
+		"specification must be built from phases",
+	)
+	assert.NotEmpty(t, flow.Specification.ID)
+	assert.NotEmpty(t, flow.Specification.Requirements)
+
+	// Verify FlowResult.Milestones is not empty
+	assert.Greater(t, len(flow.Milestones), 0,
+		"GSD must create milestones for large flows",
+	)
+
+	// Verify FlowResult.FinalArtifact is not empty
+	assert.NotEmpty(t, flow.FinalArtifact,
+		"final artifact must be set from last phase output",
+	)
+
+	// Verify the debate func was called for each phase
+	expectedPhases := types.PhasesForCeremony(
+		types.CeremonyStandard,
+	)
+	assert.Equal(t, len(expectedPhases), debateCalls,
+		"debate func must be called once per phase",
+	)
+
+	// Verify PhaseResults have score > 0.75
+	for _, pr := range flow.PhaseResults {
+		assert.True(t, pr.Success)
+		assert.Greater(t, pr.QualityScore, 0.75,
+			"phase %s score should exceed 0.75 with "+
+				"real debate func", pr.Phase,
+		)
+		assert.NotEmpty(t, pr.DebateID,
+			"phase %s should have a debate ID", pr.Phase,
+		)
+	}
+}
+
 // Silence unused import warnings by referencing all imports.
 var (
 	_ = fmt.Sprintf

@@ -2589,3 +2589,130 @@ func TestEndToEndWorkflow(t *testing.T) {
 		assert.Equal(t, 1, store.SpecCount())
 	})
 }
+
+// --- 27. Classifier -> Flow -> Milestones Pipeline ---
+
+func TestIntegration_ClassifierFlowMilestonePipeline(
+	t *testing.T,
+) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	cfg := config.DefaultConfig()
+	logger := newTestLogger()
+
+	eng := engine.New(cfg, logger)
+
+	sk := speckit.NewPillar(cfg, logger)
+	sp := superpowers.NewPillar(cfg, logger)
+	g := gsd.NewPillar(logger)
+	cs := ceremony.NewScaler(cfg, logger)
+	mem := memory.NewStore()
+
+	eng.RegisterSpecKit(sk)
+	eng.RegisterSuperpowers(sp)
+	eng.RegisterGSD(g)
+	eng.RegisterCeremonyScaler(cs)
+	eng.RegisterSpecMemory(mem)
+
+	// Register the intent classifier on the engine
+	classifier := intent.NewClassifier()
+	eng.RegisterClassifier(classifier.Classify)
+
+	ctx := context.Background()
+	request := "implement new authentication service " +
+		"with database and API endpoints"
+
+	// Step 1: ClassifyEffort triggers "large" effort
+	classification, err := eng.ClassifyEffort(ctx, request)
+	require.NoError(t, err)
+	require.NotNil(t, classification)
+
+	assert.Equal(t, types.EffortLarge, classification.Level,
+		"request with 'implement' + 'service' + "+
+			"'database' + 'api' should be large",
+	)
+	assert.Equal(t,
+		types.CeremonyStandard,
+		classification.CeremonyLevel,
+	)
+	assert.True(t, classification.RequiresDebate)
+	assert.True(t, classification.RequiresSpecKit)
+
+	// Verify classification signals are correct
+	signalStr := strings.Join(classification.Signals, ",")
+	assert.Contains(t, signalStr, "large:",
+		"signals must include large-effort indicators",
+	)
+
+	// Step 2: ExecuteFlow with that classification
+	flow, err := eng.ExecuteFlow(ctx, request, classification)
+	require.NoError(t, err)
+	require.NotNil(t, flow)
+	assert.True(t, flow.Success)
+
+	// Standard ceremony produces all 7 phases
+	assert.Equal(t, 7, len(flow.PhaseResults),
+		"standard ceremony should execute all 7 phases",
+	)
+
+	for _, pr := range flow.PhaseResults {
+		assert.True(t, pr.Success,
+			"phase %s must succeed", pr.Phase,
+		)
+		assert.NotEmpty(t, pr.Output,
+			"phase %s must produce output", pr.Phase,
+		)
+		assert.Greater(t, pr.QualityScore, 0.0,
+			"phase %s must have positive quality score",
+			pr.Phase,
+		)
+	}
+
+	// Step 3: Verify FlowResult includes milestones from GSD
+	assert.Greater(t, len(flow.Milestones), 0,
+		"GSD must create milestones from tasks",
+	)
+	for _, ms := range flow.Milestones {
+		assert.NotEmpty(t, ms.ID,
+			"milestone must have an ID",
+		)
+		assert.True(t,
+			strings.HasPrefix(ms.ID, "ms-"),
+			"milestone ID must start with 'ms-'",
+		)
+	}
+
+	// Step 4: Verify Specification was built from outputs
+	assert.NotNil(t, flow.Specification,
+		"Specification must be built from phase outputs",
+	)
+	assert.NotEmpty(t, flow.Specification.ID)
+	assert.Equal(t, types.SourceFusion,
+		flow.Specification.Source,
+	)
+	assert.NotEmpty(t, flow.Specification.Requirements,
+		"spec requirements should be extracted from phases",
+	)
+
+	// Step 5: Verify FinalArtifact is set
+	assert.NotEmpty(t, flow.FinalArtifact,
+		"FinalArtifact must be set from last phase output",
+	)
+	lastPhase := flow.PhaseResults[len(flow.PhaseResults)-1]
+	assert.Equal(t, lastPhase.Output, flow.FinalArtifact,
+		"FinalArtifact must equal last phase output",
+	)
+
+	// Step 6: Verify classification signals are correct
+	assert.Greater(t, classification.Confidence, 0.0,
+		"confidence must be positive",
+	)
+	assert.NotEmpty(t, classification.Reasoning,
+		"reasoning must not be empty",
+	)
+	assert.Greater(t, flow.OverallQualityScore, 0.0,
+		"overall quality score must be positive",
+	)
+}

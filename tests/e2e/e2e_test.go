@@ -107,7 +107,7 @@ func executeAndFormat(
 
 func TestE2E_QuickFixWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -144,7 +144,7 @@ func TestE2E_QuickFixWorkflow(t *testing.T) {
 
 func TestE2E_MediumFeatureWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -178,7 +178,7 @@ func TestE2E_MediumFeatureWorkflow(t *testing.T) {
 
 func TestE2E_LargeImplementationWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()
@@ -251,7 +251,7 @@ func TestE2E_LargeImplementationWorkflow(t *testing.T) {
 
 func TestE2E_EpicSystemRewriteWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -286,7 +286,7 @@ func TestE2E_EpicSystemRewriteWorkflow(t *testing.T) {
 
 func TestE2E_MarkdownAdapterWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -313,7 +313,7 @@ func TestE2E_MarkdownAdapterWorkflow(t *testing.T) {
 
 func TestE2E_TOMLAdapterWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -342,7 +342,7 @@ func TestE2E_TOMLAdapterWorkflow(t *testing.T) {
 
 func TestE2E_GitHubAdapterWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -369,7 +369,7 @@ func TestE2E_GitHubAdapterWorkflow(t *testing.T) {
 
 func TestE2E_GenericJSONAdapterWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -398,7 +398,7 @@ func TestE2E_GenericJSONAdapterWorkflow(t *testing.T) {
 
 func TestE2E_MinimalAdapterWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -423,7 +423,7 @@ func TestE2E_MinimalAdapterWorkflow(t *testing.T) {
 
 func TestE2E_FlowResumptionWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -465,7 +465,7 @@ func TestE2E_FlowResumptionWorkflow(t *testing.T) {
 
 func TestE2E_SpecMemoryLearningWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()
@@ -531,7 +531,7 @@ func TestE2E_SpecMemoryLearningWorkflow(t *testing.T) {
 
 func TestE2E_MultipleSequentialFlows(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -575,7 +575,7 @@ func TestE2E_MultipleSequentialFlows(t *testing.T) {
 
 func TestE2E_AdaptiveCeremonyDowngrade(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()
@@ -634,7 +634,7 @@ func TestE2E_AdaptiveCeremonyDowngrade(t *testing.T) {
 
 func TestE2E_AdaptiveCeremonyUpgrade(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()
@@ -692,7 +692,7 @@ func TestE2E_AdaptiveCeremonyUpgrade(t *testing.T) {
 
 func TestE2E_AllWellKnownAdapters(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -736,7 +736,7 @@ func TestE2E_AllWellKnownAdapters(t *testing.T) {
 
 func TestE2E_ConcurrentUserWorkflows(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -799,7 +799,7 @@ func TestE2E_ConcurrentUserWorkflows(t *testing.T) {
 
 func TestE2E_EngineHealthAndVersion(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -821,7 +821,7 @@ func TestE2E_EngineHealthAndVersion(t *testing.T) {
 
 func TestE2E_ClassifyAndExecuteAllLevels(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newE2EEngine()
@@ -934,7 +934,7 @@ func TestE2E_ClassifyAndExecuteAllLevels(t *testing.T) {
 
 func TestE2E_ThreePillarFusion(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping e2e test in short mode")
+		t.Skip("skipping e2e test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()

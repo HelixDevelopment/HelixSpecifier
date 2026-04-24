@@ -120,7 +120,7 @@ func sampleSpec(title string) *types.Specification {
 
 func TestFullFlowIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newFullEngine()
@@ -257,7 +257,7 @@ func TestFullFlowIntegration(t *testing.T) {
 
 func TestEffortClassificationPipeline(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	classifier := intent.NewClassifier()
@@ -372,7 +372,7 @@ func TestEffortClassificationPipeline(t *testing.T) {
 
 func TestCeremonyAdaptationIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()
@@ -452,7 +452,7 @@ func TestCeremonyAdaptationIntegration(t *testing.T) {
 
 func TestMultiAdapterOutputIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newFullEngine()
@@ -575,7 +575,7 @@ func TestMultiAdapterOutputIntegration(t *testing.T) {
 
 func TestSpecMemoryPersistence(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	ctx := context.Background()
@@ -705,7 +705,7 @@ func TestSpecMemoryPersistence(t *testing.T) {
 
 func TestGSDMilestoneLifecycleIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	ctx := context.Background()
@@ -844,7 +844,7 @@ func TestGSDMilestoneLifecycleIntegration(t *testing.T) {
 
 func TestSpecKitPhaseChainIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()
@@ -970,7 +970,7 @@ func TestSpecKitPhaseChainIntegration(t *testing.T) {
 
 func TestSuperpowersParallelDispatchIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()
@@ -1080,7 +1080,7 @@ func TestSuperpowersParallelDispatchIntegration(t *testing.T) {
 
 func TestAllPowerFeaturesCombined(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	ctx := context.Background()
@@ -1310,7 +1310,7 @@ func TestAllPowerFeaturesCombined(t *testing.T) {
 
 func TestFlowResumptionIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newFullEngine()
@@ -1409,7 +1409,7 @@ func TestFlowResumptionIntegration(t *testing.T) {
 
 func TestMetricsCollectionIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("FlowMetricsTracking", func(t *testing.T) {
@@ -1586,7 +1586,7 @@ func TestMetricsCollectionIntegration(t *testing.T) {
 
 func TestCrossComponentThreadSafety(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	eng := newFullEngine()
@@ -1703,7 +1703,7 @@ func TestCrossComponentThreadSafety(t *testing.T) {
 
 func TestEngineHealthChecks(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("HealthyWithSpecKit", func(t *testing.T) {
@@ -1725,7 +1725,7 @@ func TestEngineHealthChecks(t *testing.T) {
 
 func TestConfigurationIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("DefaultConfigValues", func(t *testing.T) {
@@ -1792,7 +1792,7 @@ func TestConfigurationIntegration(t *testing.T) {
 
 func TestTypeHelperFunctions(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("AllPhases", func(t *testing.T) {
@@ -1867,7 +1867,7 @@ func TestTypeHelperFunctions(t *testing.T) {
 
 func TestParallelExecutorIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("ConcurrentTaskExecution", func(t *testing.T) {
@@ -1940,7 +1940,7 @@ func TestParallelExecutorIntegration(t *testing.T) {
 
 func TestDebateArchitectureIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("MultiRoundDebate", func(t *testing.T) {
@@ -2004,7 +2004,7 @@ func TestDebateArchitectureIntegration(t *testing.T) {
 
 func TestSpecMemoryIndexIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("IndexLifecycle", func(t *testing.T) {
@@ -2094,7 +2094,7 @@ func TestSpecMemoryIndexIntegration(t *testing.T) {
 
 func TestCrossProjectTransferIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("KnowledgeTransferWorkflow", func(t *testing.T) {
@@ -2176,7 +2176,7 @@ func TestCrossProjectTransferIntegration(t *testing.T) {
 
 func TestSkillLearningIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("ProficiencyImprovement", func(t *testing.T) {
@@ -2249,7 +2249,7 @@ func TestSkillLearningIntegration(t *testing.T) {
 
 func TestConstitutionCodeIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("ConstitutionValidation", func(t *testing.T) {
@@ -2342,7 +2342,7 @@ func TestConstitutionCodeIntegration(t *testing.T) {
 
 func TestNyquistTDDIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("ComplianceLifecycle", func(t *testing.T) {
@@ -2384,7 +2384,7 @@ func TestNyquistTDDIntegration(t *testing.T) {
 
 func TestBrownfieldAnalysisIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("PatternAnalysis", func(t *testing.T) {
@@ -2436,7 +2436,7 @@ func TestBrownfieldAnalysisIntegration(t *testing.T) {
 
 func TestPredictiveSpecIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("PredictionFromHistory", func(t *testing.T) {
@@ -2481,7 +2481,7 @@ func TestPredictiveSpecIntegration(t *testing.T) {
 
 func TestCeremonyBoostIntegration(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("BoostIncreasesLevel", func(t *testing.T) {
@@ -2523,7 +2523,7 @@ func TestCeremonyBoostIntegration(t *testing.T) {
 
 func TestEndToEndWorkflow(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	t.Run("ClassifyThenExecuteWithMetrics", func(t *testing.T) {
@@ -2596,7 +2596,7 @@ func TestIntegration_ClassifierFlowMilestonePipeline(
 	t *testing.T,
 ) {
 	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
+		t.Skip("skipping integration test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	cfg := config.DefaultConfig()

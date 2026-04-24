@@ -77,7 +77,7 @@ func defaultClassification() *types.EffortClassification {
 
 func TestStress_ConcurrentFlowExecution(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const goroutines = 50
@@ -137,7 +137,7 @@ func TestStress_ConcurrentFlowExecution(t *testing.T) {
 
 func TestStress_HighVolumeClassification(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const iterations = 1000
@@ -189,7 +189,7 @@ func TestStress_HighVolumeClassification(t *testing.T) {
 
 func TestStress_ConcurrentClassification(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const goroutines = 100
@@ -240,7 +240,7 @@ func TestStress_ConcurrentClassification(t *testing.T) {
 
 func TestStress_SpecMemoryUnderLoad(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const writers = 50
@@ -313,7 +313,7 @@ func TestStress_SpecMemoryUnderLoad(t *testing.T) {
 
 func TestStress_MetricsTrackerConcurrency(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const goroutines = 100
@@ -383,7 +383,7 @@ func TestStress_MetricsTrackerConcurrency(t *testing.T) {
 
 func TestStress_ParallelExecutorSaturation(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const taskCount = 50
@@ -462,7 +462,7 @@ func TestStress_ParallelExecutorSaturation(t *testing.T) {
 
 func TestStress_GSDMilestoneRapidUpdates(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const updaters = 50
@@ -552,7 +552,7 @@ func TestStress_GSDMilestoneRapidUpdates(t *testing.T) {
 
 func TestStress_SpecMemoryFeatureFlood(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const entryCount = 500
@@ -625,7 +625,7 @@ func TestStress_SpecMemoryFeatureFlood(t *testing.T) {
 
 func TestStress_CrossProjectKnowledgeFlood(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const entryCount = 200
@@ -695,7 +695,7 @@ func TestStress_CrossProjectKnowledgeFlood(t *testing.T) {
 
 func TestStress_SkillLearningRapidUpdates(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const skillCount = 20
@@ -771,7 +771,7 @@ func TestStress_SkillLearningRapidUpdates(t *testing.T) {
 
 func TestStress_EngineResumeUnderLoad(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const flowCount = 20
@@ -845,7 +845,7 @@ func TestStress_EngineResumeUnderLoad(t *testing.T) {
 
 func TestStress_AdapterFormattingUnderLoad(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
+		t.Skip("skipping stress test in short mode")  // SKIP-OK: #short-mode
 	}
 
 	const goroutines = 50

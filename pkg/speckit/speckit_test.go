@@ -20,6 +20,31 @@ func newTestPillar() *Pillar {
 	return NewPillar(cfg, logger)
 }
 
+// echoTestDebateFunc is a deterministic stub for unit tests that
+// preserves the previous nil-DebateFunc output shape (so test
+// assertions on phase string content + 0.75 score still work),
+// installed via SetDebateFunc per CONST-050(A) — mocks/stubs are
+// permitted in *_test.go but not in production defaults.
+//
+// Round-28 §11.4 audit (2026-05-17): the production default
+// (Pillar created with NewPillar and no SetDebateFunc) now returns
+// ErrDebateFuncNotConfigured instead of fabricating output. Unit
+// tests that need deterministic behaviour MUST install this stub.
+func echoTestDebateFunc(_ context.Context, topic string, _ int, metadata map[string]interface{}) (string, float64, string, error) {
+	phase, _ := metadata["phase"].(string)
+	out := "[" + phase + "] " + topic
+	return out, 0.75, "", nil
+}
+
+// newTestPillarWithStub returns a Pillar with the echo stub
+// installed so existing tests that previously relied on the
+// nil-DebateFunc default keep their deterministic semantics.
+func newTestPillarWithStub() *Pillar {
+	p := newTestPillar()
+	p.SetDebateFunc(echoTestDebateFunc)
+	return p
+}
+
 func newTestInput() *types.PhaseInput {
 	return &types.PhaseInput{
 		UserRequest:    "Add authentication module",
@@ -50,7 +75,7 @@ func TestNewPillar(t *testing.T) {
 // --- TestPillar_ExecutePhase_Constitution ---
 
 func TestPillar_ExecutePhase_Constitution(t *testing.T) {
-	p := newTestPillar()
+	p := newTestPillarWithStub()
 	ctx := context.Background()
 	input := newTestInput()
 
@@ -73,7 +98,7 @@ func TestPillar_ExecutePhase_Constitution(t *testing.T) {
 // --- TestPillar_ExecutePhase_Specify ---
 
 func TestPillar_ExecutePhase_Specify(t *testing.T) {
-	p := newTestPillar()
+	p := newTestPillarWithStub()
 	ctx := context.Background()
 	input := newTestInput()
 
@@ -106,7 +131,7 @@ func TestPillar_ExecutePhase_AllPhases(t *testing.T) {
 
 	for _, phase := range phases {
 		t.Run(string(phase), func(t *testing.T) {
-			p := newTestPillar()
+			p := newTestPillarWithStub()
 			ctx := context.Background()
 			input := newTestInput()
 
@@ -372,7 +397,7 @@ func TestPillar_ExecutePhase_MetadataMerge(t *testing.T) {
 // --- TestPillar_ExecutePhase_NilMetadata ---
 
 func TestPillar_ExecutePhase_NilMetadata(t *testing.T) {
-	p := newTestPillar()
+	p := newTestPillarWithStub()
 	ctx := context.Background()
 
 	input := &types.PhaseInput{
@@ -387,6 +412,42 @@ func TestPillar_ExecutePhase_NilMetadata(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.Success)
 	assert.Equal(t, types.StageExecution, result.Stage)
+}
+
+// TestPillar_ExecutePhase_WithoutDebateFunc_ReturnsSentinel asserts
+// the round-28 §11.4 audit fix: ExecutePhase invoked on a Pillar
+// whose DebateFunc has not been wired returns
+// ErrDebateFuncNotConfigured (and writes no fabricated output or
+// score), instead of the previous silent placeholder branch that
+// returned Success=true with a hardcoded 0.75 score and a
+// `[<phase>] Phase output for: <request>` string.
+//
+// Constitutional anchors: CONST-035 (anti-bluff), CONST-050(A)
+// (no-fakes-beyond-unit-tests), Article XI §11.9 (forensic
+// anchor).
+func TestPillar_ExecutePhase_WithoutDebateFunc_ReturnsSentinel(t *testing.T) {
+	p := newTestPillar() // NO SetDebateFunc — exercises sentinel branch.
+	ctx := context.Background()
+	input := newTestInput()
+
+	result, err := p.ExecutePhase(
+		ctx, types.PhaseConstitution, input,
+	)
+
+	require.Error(t, err, "ExecutePhase without DebateFunc MUST surface the sentinel error, not return fabricated output")
+	require.ErrorIs(t, err, ErrDebateFuncNotConfigured)
+	require.NotNil(t, result)
+	assert.False(t, result.Success,
+		"result.Success MUST be false when DebateFunc is missing")
+	assert.Empty(t, result.Output,
+		"result.Output MUST be empty — no fabricated placeholder strings")
+	assert.Zero(t, result.QualityScore,
+		"result.QualityScore MUST be zero — no hardcoded 0.75 bluff")
+	assert.Equal(t, ErrDebateFuncNotConfigured.Error(), result.Error,
+		"result.Error MUST carry the sentinel message")
+	assert.Equal(t, types.PhaseConstitution, result.Phase)
+	assert.NotZero(t, result.Duration,
+		"duration MUST be recorded even when DebateFunc is missing")
 }
 
 // --- TestPillar_BuildPhaseTopic_UnknownPhase ---
@@ -413,7 +474,7 @@ func TestPillar_PhaseToStage_UnknownPhase(t *testing.T) {
 // --- TestPillar_ExecutePhase_Timing ---
 
 func TestPillar_ExecutePhase_Timing(t *testing.T) {
-	p := newTestPillar()
+	p := newTestPillarWithStub()
 	ctx := context.Background()
 	input := newTestInput()
 

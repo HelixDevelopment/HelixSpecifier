@@ -10,6 +10,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ErrDebateFuncNotConfigured is returned by ExecutePhase when the
+// Pillar's DebateFunc has not been wired before the call.
+//
+// Round-28 §11.4 audit (2026-05-17): the previous nil-DebateFunc
+// branch fabricated a `[<phase>] Phase output for: <request>`
+// string, hardcoded `0.75` as QualityScore, and set
+// `result.Success = true` — a PASS-bluff at the baseline-runner-
+// class default layer. Any consumer that gated on
+// `result.Success && result.QualityScore > 0.5` passed against
+// fabricated data with no error surfaced. Per the operator's
+// anti-bluff mandate, ExecutePhase now returns this sentinel and
+// writes no fake output / score when DebateFunc is nil.
+//
+// Constitutional anchors: CONST-035 (anti-bluff), CONST-050(A)
+// (no-fakes-beyond-unit-tests), Article XI §11.9 (forensic
+// anchor).
+var ErrDebateFuncNotConfigured = fmt.Errorf("helixspecifier speckit: DebateFunc has not been wired into the phase — set Phase.DebateFunc to a real debate orchestrator before invoking ExecutePhase (the previous nil-DebateFunc branch fabricated [phase] Phase output strings with a hardcoded 0.75 quality score and marked Success=true; §11.4 PASS-bluff removed)")
+
 // Pillar implements the SpecKitPillar interface providing the
 // 7-phase Spec-Driven Development workflow.
 type Pillar struct {
@@ -17,6 +35,10 @@ type Pillar struct {
 	logger *logrus.Logger
 	// DebateFunc is called to execute a debate for a phase.
 	// This allows injection of the actual debate service.
+	// MUST be set via SetDebateFunc before ExecutePhase is
+	// invoked. A nil DebateFunc causes ExecutePhase to return
+	// ErrDebateFuncNotConfigured without writing any phase
+	// output (round-28 §11.4 audit).
 	DebateFunc types.DebateFunc
 }
 
@@ -67,31 +89,32 @@ func (p *Pillar) ExecutePhase(
 		}
 	}
 
-	// Execute debate if function is available
+	// Execute debate. DebateFunc MUST be wired via SetDebateFunc
+	// before reaching this point — round-28 §11.4 audit removed
+	// the prior nil-branch that fabricated phase output with a
+	// hardcoded 0.75 score and Success=true.
+	if p.DebateFunc == nil {
+		result.Error = ErrDebateFuncNotConfigured.Error()
+		result.EndTime = time.Now()
+		result.Duration = time.Since(startTime)
+		return result, ErrDebateFuncNotConfigured
+	}
+
 	var output string
 	var score float64
 	var debateID string
 
-	if p.DebateFunc != nil {
-		var err error
-		output, score, debateID, err = p.DebateFunc(
-			ctx, topic, rounds, metadata,
+	var err error
+	output, score, debateID, err = p.DebateFunc(
+		ctx, topic, rounds, metadata,
+	)
+	if err != nil {
+		result.Error = fmt.Sprintf(
+			"debate failed: %v", err,
 		)
-		if err != nil {
-			result.Error = fmt.Sprintf(
-				"debate failed: %v", err,
-			)
-			result.EndTime = time.Now()
-			result.Duration = time.Since(startTime)
-			return result, err
-		}
-	} else {
-		// No debate function -- produce placeholder output
-		output = fmt.Sprintf(
-			"[%s] Phase output for: %s",
-			phase, input.UserRequest,
-		)
-		score = 0.75
+		result.EndTime = time.Now()
+		result.Duration = time.Since(startTime)
+		return result, err
 	}
 
 	result.Success = true

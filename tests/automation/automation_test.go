@@ -997,15 +997,26 @@ func TestAutomation_NoExportedGlobals(t *testing.T) {
 						continue
 					}
 					for _, name := range vs.Names {
-						if ast.IsExported(name.Name) {
-							rel, _ := filepath.Rel(
-								root, path,
-							)
-							violations = append(
-								violations,
-								rel+": var "+name.Name,
-							)
+						if !ast.IsExported(name.Name) {
+							continue
 						}
+						// Idiomatic Go permits exported sentinel
+						// error values (Err*). They are a
+						// CONST-035 anti-bluff requirement for
+						// surfacing missing-dependency states
+						// (round-28 §11.4 audit: e.g.
+						// ErrDebateFuncNotConfigured replaces
+						// fabricated placeholder output).
+						if strings.HasPrefix(name.Name, "Err") {
+							continue
+						}
+						rel, _ := filepath.Rel(
+							root, path,
+						)
+						violations = append(
+							violations,
+							rel+": var "+name.Name,
+						)
 					}
 				}
 			}

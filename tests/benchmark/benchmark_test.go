@@ -51,12 +51,31 @@ func newBenchConfig() *config.Config {
 	return cfg
 }
 
+// echoTestDebateFunc is a deterministic stub installed in *_test.go
+// to give SpecKit Pillar a real DebateFunc (CONST-050(A) permits
+// stubs in test sources only). Round-28 §11.4 audit (2026-05-17):
+// the production Pillar's nil-DebateFunc fabrication branch was
+// removed; benchmark tests MUST install this stub explicitly.
+func echoTestDebateFunc(_ context.Context, topic string, _ int, metadata map[string]interface{}) (string, float64, string, error) {
+	phase, _ := metadata["phase"].(string)
+	out := "[" + phase + "] " + topic
+	return out, 0.75, "", nil
+}
+
+// newTestSpecKitPillar returns a Pillar with the deterministic
+// echo DebateFunc installed for benchmark tests.
+func newTestSpecKitPillar(cfg *config.Config, logger *logrus.Logger) *speckit.Pillar {
+	p := speckit.NewPillar(cfg, logger)
+	p.SetDebateFunc(echoTestDebateFunc)
+	return p
+}
+
 func newBenchEngine() *engine.FusionEngine {
 	cfg := newBenchConfig()
 	logger := newBenchLogger()
 
 	eng := engine.New(cfg, logger)
-	eng.RegisterSpecKit(speckit.NewPillar(cfg, logger))
+	eng.RegisterSpecKit(newTestSpecKitPillar(cfg, logger))
 	eng.RegisterSuperpowers(superpowers.NewPillar(cfg, logger))
 	eng.RegisterGSD(gsd.NewPillar(logger))
 	eng.RegisterCeremonyScaler(ceremony.NewScaler(cfg, logger))
@@ -230,7 +249,7 @@ func BenchmarkCeremonyScaler_Scale(b *testing.B) {
 
 func BenchmarkSpecKit_ExecutePhase(b *testing.B) {
 	cfg := newBenchConfig()
-	pillar := speckit.NewPillar(cfg, newBenchLogger())
+	pillar := newTestSpecKitPillar(cfg, newBenchLogger())
 	ctx := context.Background()
 
 	input := &types.PhaseInput{

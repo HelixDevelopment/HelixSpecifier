@@ -39,6 +39,25 @@ func newE2ELogger() *logrus.Logger {
 	return logger
 }
 
+// echoTestDebateFunc is a deterministic stub installed in *_test.go
+// to give SpecKit Pillar a real DebateFunc (CONST-050(A) permits
+// stubs in test sources only). Round-28 §11.4 audit (2026-05-17):
+// the production Pillar's nil-DebateFunc fabrication branch was
+// removed; E2E tests MUST install this stub explicitly.
+func echoTestDebateFunc(_ context.Context, topic string, _ int, metadata map[string]interface{}) (string, float64, string, error) {
+	phase, _ := metadata["phase"].(string)
+	out := "[" + phase + "] " + topic
+	return out, 0.75, "", nil
+}
+
+// newTestSpecKitPillar returns a Pillar with the deterministic
+// echo DebateFunc installed for E2E tests.
+func newTestSpecKitPillar(cfg *config.Config, logger *logrus.Logger) *speckit.Pillar {
+	p := speckit.NewPillar(cfg, logger)
+	p.SetDebateFunc(echoTestDebateFunc)
+	return p
+}
+
 // newE2EEngine creates a fully wired FusionEngine with all
 // three real pillars, ceremony scaler, and spec memory.
 func newE2EEngine() *engine.FusionEngine {
@@ -47,7 +66,7 @@ func newE2EEngine() *engine.FusionEngine {
 
 	eng := engine.New(cfg, logger)
 
-	sk := speckit.NewPillar(cfg, logger)
+	sk := newTestSpecKitPillar(cfg, logger)
 	sp := superpowers.NewPillar(cfg, logger)
 	g := gsd.NewPillar(logger)
 	cs := ceremony.NewScaler(cfg, logger)
@@ -185,7 +204,7 @@ func TestE2E_LargeImplementationWorkflow(t *testing.T) {
 	logger := newE2ELogger()
 
 	eng := engine.New(cfg, logger)
-	sk := speckit.NewPillar(cfg, logger)
+	sk := newTestSpecKitPillar(cfg, logger)
 	sp := superpowers.NewPillar(cfg, logger)
 	g := gsd.NewPillar(logger)
 	cs := ceremony.NewScaler(cfg, logger)
@@ -472,7 +491,7 @@ func TestE2E_SpecMemoryLearningWorkflow(t *testing.T) {
 	logger := newE2ELogger()
 
 	eng := engine.New(cfg, logger)
-	sk := speckit.NewPillar(cfg, logger)
+	sk := newTestSpecKitPillar(cfg, logger)
 	sp := superpowers.NewPillar(cfg, logger)
 	g := gsd.NewPillar(logger)
 	cs := ceremony.NewScaler(cfg, logger)

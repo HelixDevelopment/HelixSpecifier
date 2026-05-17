@@ -47,6 +47,27 @@ func newTestLogger() *logrus.Logger {
 	return logger
 }
 
+// echoTestDebateFunc is a deterministic stub installed in *_test.go
+// to give SpecKit Pillar a real DebateFunc (CONST-050(A) permits
+// stubs in test sources only). Round-28 §11.4 audit (2026-05-17):
+// the production Pillar's nil-DebateFunc fabrication branch was
+// removed and replaced with ErrDebateFuncNotConfigured; integration
+// tests MUST install this stub explicitly.
+func echoTestDebateFunc(_ context.Context, topic string, _ int, metadata map[string]interface{}) (string, float64, string, error) {
+	phase, _ := metadata["phase"].(string)
+	out := "[" + phase + "] " + topic
+	return out, 0.75, "", nil
+}
+
+// newTestSpecKitPillar returns a fully wired Pillar with the
+// deterministic echo DebateFunc installed for unit/integration
+// tests that previously relied on the nil-DebateFunc bluff.
+func newTestSpecKitPillar(cfg *config.Config, logger *logrus.Logger) *speckit.Pillar {
+	p := speckit.NewPillar(cfg, logger)
+	p.SetDebateFunc(echoTestDebateFunc)
+	return p
+}
+
 // newFullEngine creates a fully wired FusionEngine with all
 // three real pillars, ceremony scaler, and spec memory.
 func newFullEngine() *engine.FusionEngine {
@@ -55,7 +76,7 @@ func newFullEngine() *engine.FusionEngine {
 
 	eng := engine.New(cfg, logger)
 
-	sk := speckit.NewPillar(cfg, logger)
+	sk := newTestSpecKitPillar(cfg, logger)
 	sp := superpowers.NewPillar(cfg, logger)
 	g := gsd.NewPillar(logger)
 	cs := ceremony.NewScaler(cfg, logger)
@@ -382,7 +403,7 @@ func TestCeremonyAdaptationIntegration(t *testing.T) {
 	t.Run("CeremonyRemainsWhenQualityNormal", func(t *testing.T) {
 		eng := engine.New(cfg, logger)
 
-		sk := speckit.NewPillar(cfg, logger)
+		sk := newTestSpecKitPillar(cfg, logger)
 		cs := ceremony.NewScaler(cfg, logger)
 		eng.RegisterSpecKit(sk)
 		eng.RegisterCeremonyScaler(cs)
@@ -669,7 +690,7 @@ func TestSpecMemoryPersistence(t *testing.T) {
 		eng := engine.New(cfg, logger)
 		store := memory.NewStore()
 
-		eng.RegisterSpecKit(speckit.NewPillar(cfg, logger))
+		eng.RegisterSpecKit(newTestSpecKitPillar(cfg, logger))
 		eng.RegisterSpecMemory(store)
 
 		cl := &types.EffortClassification{
@@ -849,7 +870,7 @@ func TestSpecKitPhaseChainIntegration(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	logger := newTestLogger()
-	pillar := speckit.NewPillar(cfg, logger)
+	pillar := newTestSpecKitPillar(cfg, logger)
 	ctx := context.Background()
 
 	t.Run("FullPhaseSequence", func(t *testing.T) {
@@ -1768,7 +1789,7 @@ func TestConfigurationIntegration(t *testing.T) {
 		logger := newTestLogger()
 
 		eng := engine.New(cfg, logger)
-		eng.RegisterSpecKit(speckit.NewPillar(cfg, logger))
+		eng.RegisterSpecKit(newTestSpecKitPillar(cfg, logger))
 		eng.RegisterCeremonyScaler(
 			ceremony.NewScaler(cfg, logger),
 		)
@@ -2604,7 +2625,7 @@ func TestIntegration_ClassifierFlowMilestonePipeline(
 
 	eng := engine.New(cfg, logger)
 
-	sk := speckit.NewPillar(cfg, logger)
+	sk := newTestSpecKitPillar(cfg, logger)
 	sp := superpowers.NewPillar(cfg, logger)
 	g := gsd.NewPillar(logger)
 	cs := ceremony.NewScaler(cfg, logger)

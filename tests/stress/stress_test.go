@@ -43,6 +43,25 @@ func newTestLogger() *logrus.Logger {
 	return logger
 }
 
+// echoTestDebateFunc is a deterministic stub installed in *_test.go
+// to give SpecKit Pillar a real DebateFunc (CONST-050(A) permits
+// stubs in test sources only). Round-28 §11.4 audit (2026-05-17):
+// the production Pillar's nil-DebateFunc fabrication branch was
+// removed; stress tests MUST install this stub explicitly.
+func echoTestDebateFunc(_ context.Context, topic string, _ int, metadata map[string]interface{}) (string, float64, string, error) {
+	phase, _ := metadata["phase"].(string)
+	out := "[" + phase + "] " + topic
+	return out, 0.75, "", nil
+}
+
+// newTestSpecKitPillar returns a Pillar with the deterministic
+// echo DebateFunc installed for stress tests.
+func newTestSpecKitPillar(cfg *config.Config, logger *logrus.Logger) *speckit.Pillar {
+	p := speckit.NewPillar(cfg, logger)
+	p.SetDebateFunc(echoTestDebateFunc)
+	return p
+}
+
 // newTestEngine creates a fully wired FusionEngine with all
 // three pillars, ceremony scaler, and spec memory registered.
 func newTestEngine() *engine.FusionEngine {
@@ -50,7 +69,7 @@ func newTestEngine() *engine.FusionEngine {
 	logger := newTestLogger()
 
 	e := engine.New(cfg, logger)
-	e.RegisterSpecKit(speckit.NewPillar(cfg, logger))
+	e.RegisterSpecKit(newTestSpecKitPillar(cfg, logger))
 	e.RegisterSuperpowers(superpowers.NewPillar(cfg, logger))
 	e.RegisterGSD(gsd.NewPillar(logger))
 	e.RegisterCeremonyScaler(ceremony.NewScaler(cfg, logger))

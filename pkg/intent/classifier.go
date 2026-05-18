@@ -3,15 +3,35 @@ package intent
 import (
 	"strings"
 
+	"digital.vasic.helixspecifier/pkg/i18n"
 	"digital.vasic.helixspecifier/pkg/types"
 )
 
-// Classifier provides effort-level classification for requests
-type Classifier struct{}
+// Classifier provides effort-level classification for requests.
+//
+// The translator resolves user-facing reasoning strings per
+// CONST-046. A nil translator is treated as a NoopTranslator at
+// resolution time, so the zero value remains usable and existing
+// constructors stay backward compatible (CONST-051(B) decoupling
+// — no project-specific defaults baked in).
+type Classifier struct {
+	translator i18n.Translator
+}
 
-// NewClassifier creates a new effort classifier
+// NewClassifier creates a new effort classifier with the default
+// NoopTranslator. Production callers SHOULD prefer
+// NewClassifierWithTranslator and inject a locale-aware backend.
 func NewClassifier() *Classifier {
-	return &Classifier{}
+	return &Classifier{translator: i18n.NewNoopTranslator()}
+}
+
+// NewClassifierWithTranslator creates a classifier with an
+// injected translator. Passing nil falls back to NoopTranslator.
+func NewClassifierWithTranslator(t i18n.Translator) *Classifier {
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
+	return &Classifier{translator: t}
 }
 
 // Classify determines the effort level of a request
@@ -112,20 +132,29 @@ func (c *Classifier) Classify(
 	return result
 }
 
-// generateReasoning explains the classification
+// generateReasoning explains the classification. Reasoning
+// strings are resolved through the i18n translator (CONST-046).
+// A nil translator (defensive — should not occur via either
+// constructor) is treated as NoopTranslator so the function
+// stays panic-free, matching the anti-bluff contract that
+// missing translations surface visibly rather than crash.
 func (c *Classifier) generateReasoning(
 	cl *types.EffortClassification,
 ) string {
+	t := c.translator
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
 	switch cl.Level {
 	case types.EffortQuick:
-		return "Simple task requiring minimal process"
+		return t.T("helixspecifier_intent_quick_reasoning")
 	case types.EffortMedium:
-		return "Moderate task with light planning"
+		return t.T("helixspecifier_intent_medium_reasoning")
 	case types.EffortLarge:
-		return "Substantial task requiring full SDD workflow"
+		return t.T("helixspecifier_intent_large_reasoning")
 	case types.EffortEpic:
-		return "Major undertaking requiring maximum ceremony"
+		return t.T("helixspecifier_intent_epic_reasoning")
 	default:
-		return "Unknown effort level"
+		return t.T("helixspecifier_intent_unknown_reasoning")
 	}
 }

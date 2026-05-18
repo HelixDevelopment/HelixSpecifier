@@ -1,0 +1,24 @@
+# HelixSpecifier English active translation bundle.
+#
+# Keys prefixed `helixspecifier_` per CONST-046 namespacing
+# convention. Bundle is consumed by pkg/i18n.Translator
+# implementations. Edits here MUST be paired with regression
+# tests that assert every migrated call site can still resolve
+# its key (anti-bluff per Article XI §11.9).
+#
+# Verbatim 2026-05-19 operator mandate (preserved per
+# CONST-049 §11.4.17): "all existing tests and Challenges do
+# work in anti-bluff manner - they MUST confirm that all
+# tested codebase really works as expected! We had been in
+# position that all tests do execute with success and all
+# Challenges as well, but in reality the most of the features
+# does not work and can't be used! This MUST NOT be the case
+# and execution of tests and Challenges MUST guarantee the
+# quality, the completition and full usability by end users
+# of the product!"
+
+helixspecifier_intent_quick_reasoning: "Simple task requiring minimal process"
+helixspecifier_intent_medium_reasoning: "Moderate task with light planning"
+helixspecifier_intent_large_reasoning: "Substantial task requiring full SDD workflow"
+helixspecifier_intent_epic_reasoning: "Major undertaking requiring maximum ceremony"
+helixspecifier_intent_unknown_reasoning: "Unknown effort level"

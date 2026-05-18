@@ -138,22 +138,46 @@ func TestClassifier_Classify_Signals(t *testing.T) {
 	assert.True(t, found, "expected epic signal")
 }
 
+// TestClassifier_Classify_Reasoning asserts the i18n keys
+// emitted by generateReasoning post-CONST-046 migration. Under
+// the default NoopTranslator the keys round-trip verbatim, so
+// asserting them here both validates the migration (every level
+// resolves to its dedicated key) and pins the namespace prefix
+// per CONST-046 — a regression that hardcodes English would
+// fail this test because NoopTranslator never returns the
+// underlying bundle value.
 func TestClassifier_Classify_Reasoning(t *testing.T) {
 	c := NewClassifier()
 
 	quick := c.Classify("fix typo")
-	assert.Contains(t, quick.Reasoning, "Simple")
+	assert.Equal(
+		t,
+		"helixspecifier_intent_quick_reasoning",
+		quick.Reasoning,
+	)
 
 	medium := c.Classify("update the config")
-	assert.Contains(t, medium.Reasoning, "Moderate")
+	assert.Equal(
+		t,
+		"helixspecifier_intent_medium_reasoning",
+		medium.Reasoning,
+	)
 
 	large := c.Classify(
 		"implement new authentication service for api",
 	)
-	assert.Contains(t, large.Reasoning, "Substantial")
+	assert.Equal(
+		t,
+		"helixspecifier_intent_large_reasoning",
+		large.Reasoning,
+	)
 
 	epic := c.Classify("rebuild all from scratch")
-	assert.Contains(t, epic.Reasoning, "Major")
+	assert.Equal(
+		t,
+		"helixspecifier_intent_epic_reasoning",
+		epic.Reasoning,
+	)
 }
 
 func TestClassifier_Classify_MultipleSignals(t *testing.T) {
@@ -171,6 +195,11 @@ func TestClassifier_Classify_EmptyRequest(t *testing.T) {
 	assert.Empty(t, result.Signals)
 }
 
+// TestClassifier_GenerateReasoning_UnknownLevel asserts the
+// unknown-effort branch resolves to its i18n key (CONST-046).
+// Pre-migration this asserted the literal English string; the
+// key now wins via NoopTranslator so a regression that
+// reintroduces a hardcoded literal is caught.
 func TestClassifier_GenerateReasoning_UnknownLevel(
 	t *testing.T,
 ) {
@@ -180,7 +209,78 @@ func TestClassifier_GenerateReasoning_UnknownLevel(
 		Level: types.EffortLevel("unknown"),
 	}
 	reasoning := c.generateReasoning(cl)
-	assert.Equal(t, "Unknown effort level", reasoning)
+	assert.Equal(
+		t,
+		"helixspecifier_intent_unknown_reasoning",
+		reasoning,
+	)
+}
+
+// TestClassifier_WithTranslator_InjectsAlternate proves the
+// translator-injection constructor wires through end-to-end:
+// reasoning strings come from the injected backend, not from
+// the noop fallback. This is the anti-bluff invariant for the
+// i18n call site — a regression that hardcodes English literals
+// would render this test inert because the injected stub would
+// never be consulted.
+func TestClassifier_WithTranslator_InjectsAlternate(
+	t *testing.T,
+) {
+	stub := &recordingTranslator{
+		responses: map[string]string{
+			"helixspecifier_intent_quick_reasoning": "QK",
+			"helixspecifier_intent_medium_reasoning": "MD",
+			"helixspecifier_intent_large_reasoning": "LG",
+			"helixspecifier_intent_epic_reasoning": "EP",
+			"helixspecifier_intent_unknown_reasoning": "UN",
+		},
+	}
+	c := NewClassifierWithTranslator(stub)
+	require.NotNil(t, c)
+
+	got := c.Classify("fix typo")
+	assert.Equal(t, "QK", got.Reasoning)
+	assert.Contains(
+		t, stub.seen,
+		"helixspecifier_intent_quick_reasoning",
+	)
+}
+
+// TestClassifier_NewWithNilTranslator_FallsBackToNoop ensures
+// constructor robustness — a nil injection lands on the noop
+// fallback rather than crashing later inside generateReasoning.
+func TestClassifier_NewWithNilTranslator_FallsBackToNoop(
+	t *testing.T,
+) {
+	c := NewClassifierWithTranslator(nil)
+	require.NotNil(t, c)
+	got := c.Classify("fix typo")
+	assert.Equal(
+		t,
+		"helixspecifier_intent_quick_reasoning",
+		got.Reasoning,
+	)
+}
+
+// recordingTranslator is a unit-test-only translator that maps
+// keys to canned responses and records every lookup. Per
+// CONST-050(A) mocks/stubs are permitted only in unit-test
+// sources; this struct lives inside *_test.go and is never
+// imported by production code.
+type recordingTranslator struct {
+	responses map[string]string
+	seen      []string
+}
+
+func (r *recordingTranslator) T(
+	key string, args ...any,
+) string {
+	r.seen = append(r.seen, key)
+	_ = args
+	if v, ok := r.responses[key]; ok {
+		return v
+	}
+	return key
 }
 
 func TestClassifier_Classify_TableDriven(t *testing.T) {

@@ -1,0 +1,7 @@
+# HelixSpecifier round-273 challenge fixture — German (de).
+locale: de
+prompt: "Fix typo in user-facing error message (Deutsch test)"
+expect_effort: quick
+expect_signal_substr: "quick:fix typo"
+expect_reasoning_key: "helixspecifier_intent_quick_reasoning"
+expect_reasoning_substr: "helixspecifier_intent_quick_reasoning"

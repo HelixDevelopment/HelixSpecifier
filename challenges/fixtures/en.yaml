@@ -1,0 +1,12 @@
+# HelixSpecifier round-273 challenge fixture — English (en).
+#
+# Drives the Challenge runner at challenges/runner/main.go through a
+# real FusionEngine flow + intent classification + i18n resolution.
+# Anti-bluff: the fixture key MUST round-trip through the bundle and
+# match the expected substring; a runtime mismatch fails the run.
+locale: en
+prompt: "Add OAuth2 authentication to the API gateway service"
+expect_effort: large
+expect_signal_substr: "large:"
+expect_reasoning_key: "helixspecifier_intent_large_reasoning"
+expect_reasoning_substr: "helixspecifier_intent_large_reasoning"

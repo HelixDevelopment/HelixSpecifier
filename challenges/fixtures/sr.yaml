@@ -1,0 +1,13 @@
+# HelixSpecifier round-273 challenge fixture — Serbian (sr).
+#
+# The classifier is keyword-driven on English signals (current
+# implementation); the fixture supplies a mixed prompt so the runner
+# can demonstrate locale tagging without bluffing about i18n
+# classification accuracy. CONST-046 covers the rendered reasoning,
+# not the keyword lexicon.
+locale: sr
+prompt: "Implement user authentication with database backend (Srpski test)"
+expect_effort: large
+expect_signal_substr: "large:"
+expect_reasoning_key: "helixspecifier_intent_large_reasoning"
+expect_reasoning_substr: "helixspecifier_intent_large_reasoning"

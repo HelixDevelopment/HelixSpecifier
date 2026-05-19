@@ -257,6 +257,86 @@ go test -v -run TestFusionEngine_ExecuteFlow ./pkg/engine/
    `feat(engine): add adaptive ceremony scaling`
 5. Maintain the Nyquist TDD ratio: test code >= 2x implementation
 
+## Anti-Bluff Guarantees (round-273)
+
+HelixSpecifier ships with a layered defence against the failure
+mode the constitution captures verbatim:
+
+> Verbatim 2026-05-19 operator mandate (preserved per
+> CONST-049 §11.4.17):
+> *"all existing tests and Challenges do work in anti-bluff
+> manner - they MUST confirm that all tested codebase really
+> works as expected! We had been in position that all tests
+> do execute with success and all Challenges as well, but in
+> reality the most of the features does not work and can't
+> be used! This MUST NOT be the case and execution of tests
+> and Challenges MUST guarantee the quality, the completition
+> and full usability by end users of the product!"*
+
+The layers, top to bottom:
+
+1. **Unit + race**: `GOMAXPROCS=2 go test -count=1 -race -p 1
+   ./...` covers every package in `pkg/` plus the new
+   `challenges/runner/` package. Mocks are permitted ONLY here
+   (CONST-050(A)).
+2. **Per-locale Challenge runner** (`challenges/runner/main.go`):
+   real `FusionEngine` + real `intent.Classifier` + real
+   `i18n.NoopTranslator` exercised across 5 locale fixtures
+   (`en`, `sr`, `de`, `ja`, `es`). 20 invariants per run; each
+   carries the actual runtime value in the PASS line.
+3. **Paired-mutation Challenge**
+   (`challenges/helixspecifier_describe_challenge.sh`): wraps the
+   runner with `HELIXSPECIFIER_MUTATE_RUNNER=1`, asserts the
+   runner DETECTS the planted invariant flip, exits 99 to signal
+   "mutation correctly observed" (CONST-050(A) §1.1).
+4. **Domain-level Challenges** (`challenges/scripts/*.sh`): chaos,
+   DDoS, scaling, stress, UI, UX — env-gated to avoid bluffing
+   when no target endpoint is configured (`SKIP-OK:` markers per
+   §11.4.6).
+5. **Test-coverage ledger** (`docs/test-coverage.md`): every
+   public symbol of `pkg/engine`, `pkg/intent`, `pkg/i18n`,
+   `pkg/speckit`, `pkg/superpowers`, `pkg/gsd` traced to the
+   test + Challenge that proves it works.
+
+### Quick verification
+
+```bash
+# Layer 1: race-detector clean across every package
+GOMAXPROCS=2 go test -count=1 -race -p 1 ./...
+
+# Layer 2: per-locale runner (exit 0 on success)
+go run ./challenges/runner/
+
+# Layer 3: paired-mutation Challenge (exit 0 normal, 99 mutate)
+./challenges/helixspecifier_describe_challenge.sh normal
+./challenges/helixspecifier_describe_challenge.sh mutate
+
+# Layer 4: domain Challenges (env-gated; SKIP-OK without target)
+for c in challenges/scripts/*.sh; do bash "$c" || true; done
+```
+
+### What is NOT bluffed
+
+- The runner uses `engine.NewWithTranslator` + real
+  `speckit.NewPillar` — no in-process stub pillar.
+- Every PASS line includes the runtime value (`got=...`,
+  `signals=[...]`), so a regression that returned the wrong
+  level/signal would surface in the diff, not just in the
+  exit code.
+- The mutation hook is checked by `TestRun_MutationDetected` —
+  if a future edit silently removes the mutation logic, the
+  test fails. This is the §1.1 "paired mutation" requirement.
+- Fixtures are checked into the repo as plain YAML; they MUST
+  match the live keys in `pkg/i18n/bundles/active.en.yaml`.
+  Mismatch → runner FAIL → Challenge exit 1.
+
+### Cascade (CONST-047 / CONST-051(A))
+
+This anti-bluff stack mirrors the pattern in sibling submodules
+LeakHub (round 266), MCP_Module (round 267), Models (round 268),
+Ouroborous (round 269), and is bumped as part of every meta-repo
+close-out round.
+
 ## License
 
 Same license as HelixAgent. See the root LICENSE file.

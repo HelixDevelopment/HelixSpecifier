@@ -1,0 +1,7 @@
+# HelixSpecifier round-273 challenge fixture — Japanese (ja).
+locale: ja
+prompt: "Rebuild all of the entire system from scratch with new architecture (日本語)"
+expect_effort: epic
+expect_signal_substr: "epic:"
+expect_reasoning_key: "helixspecifier_intent_epic_reasoning"
+expect_reasoning_substr: "helixspecifier_intent_epic_reasoning"

@@ -1,0 +1,7 @@
+# HelixSpecifier round-273 challenge fixture — Spanish (es).
+locale: es
+prompt: "Refactor module structure for readability (Español)"
+expect_effort: large
+expect_signal_substr: "refactor:refactor"
+expect_reasoning_key: "helixspecifier_intent_large_reasoning"
+expect_reasoning_substr: "helixspecifier_intent_large_reasoning"

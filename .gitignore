@@ -1,6 +1,62 @@
+# HelixSpecifier .gitignore — CONST-053 compliant
+# (No-Versioned-Build-Artifacts Mandate, §11.4.30).
+#
+# Forbidden classes covered: build artefacts, caches, temp files,
+# sensitive-data files, generated reports/logs, OS/IDE state.
+# Inventory updated in round-273 to match constitution submodule
+# §11.4.30 sweep classes.
+
+# 1. Build artefacts
 /bin/
-/coverage.*
+/build/
+/dist/
+/out/
 *.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
 *.test
-*.out
+
+# 2. Cache files
+.cache/
+.gradle/
+.terraform/
+node_modules/
 .helixspecifier/cache/
+
+# 3. Temp files
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+*.orig
+*.rej
+
+# 4. Sensitive data — CONST-042 / §12.1 (No-Secret-Leak) overlap
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+id_rsa*
+id_ed25519*
+.netrc
+secrets/
+api_keys.sh
+
+# 5. Generated reports / logs / coverage
+*.log
+coverage.out
+coverage.*
+htmlcov/
+*.out
+*.prof
+
+# 6. OS / IDE personal state
+.idea/
+.history/
+.vscode/

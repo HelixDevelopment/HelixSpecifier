@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"digital.vasic.helixspecifier/pkg/config"
+	"digital.vasic.helixspecifier/pkg/i18n"
 	"digital.vasic.helixspecifier/pkg/types"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -26,6 +27,12 @@ import (
 // FusionEngine orchestrates the 3-pillar spec-driven development
 // flow. It fuses SpecKit (7-phase SDD), Superpowers (TDD and
 // subagents), and GSD (milestone lifecycle) into a unified engine.
+//
+// The translator resolves user-facing reasoning text per CONST-046.
+// A nil translator is treated as a NoopTranslator at resolution
+// time, keeping zero-value and legacy New() callers panic-free.
+// Project-not-aware decoupling (CONST-051(B)) is preserved — the
+// engine does not bake in any HelixCode-specific defaults.
 type FusionEngine struct {
 	cfg        *config.Config
 	logger     *logrus.Logger
@@ -35,20 +42,57 @@ type FusionEngine struct {
 	ceremony   types.CeremonyScaler
 	memory     types.SpecMemory
 	classifier types.EffortClassifierFunc
+	translator i18n.Translator
 	adapters   map[string]types.CLIAgentAdapter
 	flows      map[string]*types.FlowResult
 	mu         sync.RWMutex
 }
 
 // New creates a new FusionEngine with the given configuration
-// and logger.
+// and logger. The engine defaults to a NoopTranslator; production
+// callers SHOULD prefer NewWithTranslator and inject a real
+// locale-aware backend.
 func New(cfg *config.Config, logger *logrus.Logger) *FusionEngine {
 	return &FusionEngine{
-		cfg:      cfg,
-		logger:   logger,
-		adapters: make(map[string]types.CLIAgentAdapter),
-		flows:    make(map[string]*types.FlowResult),
+		cfg:        cfg,
+		logger:     logger,
+		translator: i18n.NewNoopTranslator(),
+		adapters:   make(map[string]types.CLIAgentAdapter),
+		flows:      make(map[string]*types.FlowResult),
 	}
+}
+
+// NewWithTranslator creates a FusionEngine with an injected
+// translator for user-facing strings (CONST-046). Passing nil
+// falls back to NoopTranslator, matching the zero-value safety
+// contract of New().
+func NewWithTranslator(
+	cfg *config.Config,
+	logger *logrus.Logger,
+	t i18n.Translator,
+) *FusionEngine {
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
+	return &FusionEngine{
+		cfg:        cfg,
+		logger:     logger,
+		translator: t,
+		adapters:   make(map[string]types.CLIAgentAdapter),
+		flows:      make(map[string]*types.FlowResult),
+	}
+}
+
+// SetTranslator swaps the engine's i18n translator at runtime.
+// Passing nil falls back to NoopTranslator so the engine remains
+// panic-free. Useful when locale changes mid-session.
+func (e *FusionEngine) SetTranslator(t i18n.Translator) {
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.translator = t
 }
 
 // RegisterSpecKit registers the SpecKit pillar implementation.
@@ -151,13 +195,21 @@ func (e *FusionEngine) ClassifyEffort(
 	if e.classifier != nil {
 		classification = e.classifier(request)
 	} else {
-		// Fallback to default
+		// Fallback to default — reasoning resolved through
+		// the i18n translator (CONST-046). Nil translator
+		// defensive fallback mirrors generateReasoning() in
+		// pkg/intent/classifier.go.
+		t := e.translator
+		if t == nil {
+			t = i18n.NewNoopTranslator()
+		}
 		classification = &types.EffortClassification{
 			Level:      types.EffortMedium,
 			Confidence: 0.5,
 			Signals:    []string{"default_classification"},
-			Reasoning: "Default medium effort " +
-				"classification",
+			Reasoning: t.T(
+				"helixspecifier_engine_default_medium_reasoning",
+			),
 		}
 		classification.CeremonyLevel =
 			types.CeremonyForEffort(

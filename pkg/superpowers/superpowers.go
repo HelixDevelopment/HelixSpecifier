@@ -7,23 +7,60 @@ import (
 	"time"
 
 	"digital.vasic.helixspecifier/pkg/config"
+	"digital.vasic.helixspecifier/pkg/i18n"
 	"digital.vasic.helixspecifier/pkg/types"
 	"github.com/sirupsen/logrus"
 )
 
 // Pillar implements the SuperpowersPillar interface providing
 // TDD-driven execution and parallel subagent dispatch.
+//
+// The translator resolves operator-visible task output strings
+// per CONST-046. A nil translator is treated as a NoopTranslator
+// at resolution time, keeping NewPillar() callers backward
+// compatible. CONST-051(B) decoupling preserved: no project-
+// specific defaults baked in.
 type Pillar struct {
-	cfg    *config.Config
-	logger *logrus.Logger
+	cfg        *config.Config
+	logger     *logrus.Logger
+	translator i18n.Translator
 }
 
-// NewPillar creates a new Superpowers pillar
+// NewPillar creates a new Superpowers pillar with the default
+// NoopTranslator. Production callers SHOULD prefer
+// NewPillarWithTranslator.
 func NewPillar(
 	cfg *config.Config,
 	logger *logrus.Logger,
 ) *Pillar {
-	return &Pillar{cfg: cfg, logger: logger}
+	return &Pillar{
+		cfg:        cfg,
+		logger:     logger,
+		translator: i18n.NewNoopTranslator(),
+	}
+}
+
+// NewPillarWithTranslator creates a Superpowers Pillar with an
+// injected translator. Passing nil falls back to NoopTranslator.
+func NewPillarWithTranslator(
+	cfg *config.Config,
+	logger *logrus.Logger,
+	t i18n.Translator,
+) *Pillar {
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
+	return &Pillar{cfg: cfg, logger: logger, translator: t}
+}
+
+// SetTranslator swaps the Pillar's i18n translator at runtime.
+// Passing nil falls back to NoopTranslator so the Pillar remains
+// panic-free.
+func (p *Pillar) SetTranslator(t i18n.Translator) {
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
+	p.translator = t
 }
 
 // ExecuteWithTDD runs tasks with TDD discipline
@@ -158,14 +195,19 @@ func (p *Pillar) executeSingleTask(
 		"[Superpowers] Executing task",
 	)
 
+	t := p.translator
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
+
 	result := types.TaskResult{
-		TaskID:      task.ID,
-		Success:     true,
-		Output:      fmt.Sprintf("Executed task: %s", task.Name),
+		TaskID:       task.ID,
+		Success:      true,
+		Output:       t.T("helixspecifier_superpowers_task_executed", task.Name),
 		FilesChanged: task.FilesAffected,
-		TestsPassed: len(task.Acceptance),
-		TestsFailed: 0,
-		Duration:    time.Since(startTime),
+		TestsPassed:  len(task.Acceptance),
+		TestsFailed:  0,
+		Duration:     time.Since(startTime),
 	}
 
 	return result

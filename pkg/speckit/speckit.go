@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"digital.vasic.helixspecifier/pkg/config"
+	"digital.vasic.helixspecifier/pkg/i18n"
 	"digital.vasic.helixspecifier/pkg/types"
 	"github.com/sirupsen/logrus"
 )
@@ -30,9 +31,15 @@ var ErrDebateFuncNotConfigured = fmt.Errorf("helixspecifier speckit: DebateFunc 
 
 // Pillar implements the SpecKitPillar interface providing the
 // 7-phase Spec-Driven Development workflow.
+//
+// The translator resolves debate-topic templates (the operator-
+// visible prompts the orchestrator forwards to LLMs) per
+// CONST-046. A nil translator is treated as a NoopTranslator at
+// resolution time, keeping NewPillar() callers backward compatible.
 type Pillar struct {
-	cfg    *config.Config
-	logger *logrus.Logger
+	cfg        *config.Config
+	logger     *logrus.Logger
+	translator i18n.Translator
 	// DebateFunc is called to execute a debate for a phase.
 	// This allows injection of the actual debate service.
 	// MUST be set via SetDebateFunc before ExecutePhase is
@@ -42,15 +49,46 @@ type Pillar struct {
 	DebateFunc types.DebateFunc
 }
 
-// NewPillar creates a new SpecKit pillar
+// NewPillar creates a new SpecKit pillar with the default
+// NoopTranslator. Production callers SHOULD prefer
+// NewPillarWithTranslator and inject a real backend.
 func NewPillar(
 	cfg *config.Config,
 	logger *logrus.Logger,
 ) *Pillar {
 	return &Pillar{
-		cfg:    cfg,
-		logger: logger,
+		cfg:        cfg,
+		logger:     logger,
+		translator: i18n.NewNoopTranslator(),
 	}
+}
+
+// NewPillarWithTranslator creates a Pillar with an injected
+// translator. Passing nil falls back to NoopTranslator, matching
+// the zero-value safety contract of NewPillar.
+func NewPillarWithTranslator(
+	cfg *config.Config,
+	logger *logrus.Logger,
+	t i18n.Translator,
+) *Pillar {
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
+	return &Pillar{
+		cfg:        cfg,
+		logger:     logger,
+		translator: t,
+	}
+}
+
+// SetTranslator swaps the Pillar's i18n translator at runtime.
+// Passing nil falls back to NoopTranslator so the Pillar remains
+// panic-free.
+func (p *Pillar) SetTranslator(t i18n.Translator) {
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
+	p.translator = t
 }
 
 // SetDebateFunc sets the debate execution function.
@@ -168,56 +206,59 @@ func (p *Pillar) ValidateTransition(
 	return toIdx == fromIdx+1
 }
 
-// buildPhaseTopic generates the debate topic for a phase
+// buildPhaseTopic generates the debate topic for a phase. Topic
+// templates are resolved through the i18n translator (CONST-046)
+// so non-English operators see locale-appropriate prompts. A nil
+// translator is defensively treated as NoopTranslator: a missing
+// translation surfaces as the raw key on screen rather than
+// crashing the orchestrator (anti-bluff per Article XI §11.9).
 func (p *Pillar) buildPhaseTopic(
 	phase types.SpecKitPhase,
 	input *types.PhaseInput,
 ) string {
+	t := p.translator
+	if t == nil {
+		t = i18n.NewNoopTranslator()
+	}
 	switch phase {
 	case types.PhaseConstitution:
-		return fmt.Sprintf(
-			"Analyze the request and create/update the "+
-				"project Constitution:\n\nRequest: %s"+
-				"\n\nConstitution: %s",
+		return t.T(
+			"helixspecifier_speckit_topic_constitution",
 			input.UserRequest, input.Constitution,
 		)
 	case types.PhaseSpecify:
-		return fmt.Sprintf(
-			"Create a detailed specification based on "+
-				"the request and Constitution:\n\n"+
-				"Request: %s\n\nPrevious: %s",
+		return t.T(
+			"helixspecifier_speckit_topic_specify",
 			input.UserRequest, input.PreviousOutput,
 		)
 	case types.PhaseClarify:
-		return fmt.Sprintf(
-			"Clarify and validate the specification:"+
-				"\n\nSpecification: %s",
+		return t.T(
+			"helixspecifier_speckit_topic_clarify",
 			input.PreviousOutput,
 		)
 	case types.PhasePlan:
-		return fmt.Sprintf(
-			"Create implementation plan:\n\nSpec: %s",
+		return t.T(
+			"helixspecifier_speckit_topic_plan",
 			input.PreviousOutput,
 		)
 	case types.PhaseTasks:
-		return fmt.Sprintf(
-			"Break down plan into tasks:\n\nPlan: %s",
+		return t.T(
+			"helixspecifier_speckit_topic_tasks",
 			input.PreviousOutput,
 		)
 	case types.PhaseAnalyze:
-		return fmt.Sprintf(
-			"Analyze tasks before implementation:"+
-				"\n\nTasks: %s",
+		return t.T(
+			"helixspecifier_speckit_topic_analyze",
 			input.PreviousOutput,
 		)
 	case types.PhaseImplement:
-		return fmt.Sprintf(
-			"Execute implementation:\n\nAnalysis: %s",
+		return t.T(
+			"helixspecifier_speckit_topic_implement",
 			input.PreviousOutput,
 		)
 	default:
 		return fmt.Sprintf(
-			"Execute phase %s: %s",
+			"phase=%s request=%s",
 			phase, input.UserRequest,
 		)
 	}

@@ -22,3 +22,22 @@ helixspecifier_intent_medium_reasoning: "Moderate task with light planning"
 helixspecifier_intent_large_reasoning: "Substantial task requiring full SDD workflow"
 helixspecifier_intent_epic_reasoning: "Major undertaking requiring maximum ceremony"
 helixspecifier_intent_unknown_reasoning: "Unknown effort level"
+
+# Round-208 additions (CONST-046 Phase 4 round 90):
+# Engine + SpecKit + Superpowers + Predictive user-facing strings
+# extracted from production code. Format strings preserve their
+# %s / %v placeholders so call sites can still supply runtime
+# substitutions via t.T(key, args...).
+
+helixspecifier_engine_default_medium_reasoning: "Default medium effort classification"
+
+helixspecifier_speckit_topic_constitution: "Analyze the request and create/update the project Constitution:\n\nRequest: %s\n\nConstitution: %s"
+helixspecifier_speckit_topic_specify: "Create a detailed specification based on the request and Constitution:\n\nRequest: %s\n\nPrevious: %s"
+helixspecifier_speckit_topic_clarify: "Clarify and validate the specification:\n\nSpecification: %s"
+helixspecifier_speckit_topic_plan: "Create implementation plan:\n\nSpec: %s"
+helixspecifier_speckit_topic_tasks: "Break down plan into tasks:\n\nPlan: %s"
+helixspecifier_speckit_topic_analyze: "Analyze tasks before implementation:\n\nTasks: %s"
+helixspecifier_speckit_topic_implement: "Execute implementation:\n\nAnalysis: %s"
+
+helixspecifier_superpowers_task_executed: "Executed task: %s"
+helixspecifier_predictive_basis_label: "Based on: %s"

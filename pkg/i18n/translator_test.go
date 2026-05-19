@@ -37,20 +37,34 @@ func TestNoopTranslator_FormatsArgs(t *testing.T) {
 }
 
 // TestNoopTranslator_AllMigratedKeysResolve asserts every key
-// migrated in round 117 resolves to a non-empty value through
-// the noop fallback. This is the sentinel that detects key
-// drift: if a call site is migrated but the key here is not
-// added (or vice versa), the test fails. Composes with
-// classifier_test.go assertions to guarantee end-to-end key
-// integrity for the migration batch.
+// migrated in round 117 (and the round-208 follow-up) resolves
+// to a non-empty value through the noop fallback. This is the
+// sentinel that detects key drift: if a call site is migrated
+// but the key here is not added (or vice versa), the test fails.
+// Composes with classifier_test.go / engine_test.go /
+// speckit_test.go / superpowers_test.go / predictive_test.go
+// assertions to guarantee end-to-end key integrity for the
+// migration batch.
 func TestNoopTranslator_AllMigratedKeysResolve(t *testing.T) {
 	tr := NewNoopTranslator()
 	migrated := []string{
+		// round 117 (HelixSpecifier kickoff)
 		"helixspecifier_intent_quick_reasoning",
 		"helixspecifier_intent_medium_reasoning",
 		"helixspecifier_intent_large_reasoning",
 		"helixspecifier_intent_epic_reasoning",
 		"helixspecifier_intent_unknown_reasoning",
+		// round 208 (CONST-046 Phase 4 round 90)
+		"helixspecifier_engine_default_medium_reasoning",
+		"helixspecifier_speckit_topic_constitution",
+		"helixspecifier_speckit_topic_specify",
+		"helixspecifier_speckit_topic_clarify",
+		"helixspecifier_speckit_topic_plan",
+		"helixspecifier_speckit_topic_tasks",
+		"helixspecifier_speckit_topic_analyze",
+		"helixspecifier_speckit_topic_implement",
+		"helixspecifier_superpowers_task_executed",
+		"helixspecifier_predictive_basis_label",
 	}
 	for _, k := range migrated {
 		got := tr.T(k)
@@ -59,6 +73,59 @@ func TestNoopTranslator_AllMigratedKeysResolve(t *testing.T) {
 			t,
 			strings.HasPrefix(k, "helixspecifier_"),
 			"key %s missing namespace prefix", k,
+		)
+	}
+}
+
+// TestNoopTranslator_Round208KeysAcceptArgs verifies the
+// printf-style branch is exercised for every round-208 key that
+// carries %s / %v placeholders. The noop fallback intentionally
+// does NOT translate — its anti-bluff contract is that args
+// remain visible in the output (either spliced into format verbs
+// or emitted as fmt's "EXTRA" suffix) so missing-translation
+// situations cannot silently swallow data. A regression that
+// drops the args parameter entirely would fail this test —
+// paired-mutation guard for the migration.
+func TestNoopTranslator_Round208KeysAcceptArgs(t *testing.T) {
+	tr := NewNoopTranslator()
+	cases := []struct {
+		key     string
+		args    []any
+		wantArg string
+	}{
+		{
+			"helixspecifier_speckit_topic_plan",
+			[]any{"prev-output"},
+			"prev-output",
+		},
+		{
+			"helixspecifier_speckit_topic_tasks",
+			[]any{"plan-content"},
+			"plan-content",
+		},
+		{
+			"helixspecifier_superpowers_task_executed",
+			[]any{"my-task"},
+			"my-task",
+		},
+		{
+			"helixspecifier_predictive_basis_label",
+			[]any{"login-event"},
+			"login-event",
+		},
+	}
+	for _, c := range cases {
+		got := tr.T(c.key, c.args...)
+		assert.NotEmpty(t, got, "key %s empty", c.key)
+		assert.Contains(
+			t, got, c.key,
+			"key %s missing from output (translator dropped key)",
+			c.key,
+		)
+		assert.Contains(
+			t, got, c.wantArg,
+			"arg not visible in noop output for key %s",
+			c.key,
 		)
 	}
 }

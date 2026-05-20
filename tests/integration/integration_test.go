@@ -385,6 +385,10 @@ func TestEffortClassificationPipeline(t *testing.T) {
 		cl, err := eng.ClassifyEffort(ctx, "")
 		assert.Error(t, err)
 		assert.Nil(t, cl)
+		// Round-405 CONST-046: validation error resolves through
+		// the i18n seam (i18n.ResolveOrFallback). With the default
+		// NoopTranslator the bundled English fallback is emitted,
+		// so the real engine still produces a coherent message.
 		assert.Contains(t, err.Error(), "empty request")
 	})
 }
@@ -533,6 +537,12 @@ func TestMultiAdapterOutputIntegration(t *testing.T) {
 		output, err := adapter.FormatOutput(result)
 		require.NoError(t, err)
 		assert.Contains(t, output, result.FlowID)
+		// Round-405 CONST-046: Markdown report headings resolve
+		// through the i18n seam (i18n.ResolveOrFallback). With the
+		// default NoopTranslator the bundled English fallback is
+		// emitted, so the real adapter still renders coherent
+		// Markdown — a raw i18n key leaking here would be a
+		// usability defect (Article XI §11.9).
 		assert.Contains(t, output, "# HelixSpecifier Flow")
 	})
 
@@ -1070,6 +1080,9 @@ func TestSuperpowersParallelDispatchIntegration(t *testing.T) {
 	t.Run("EmptyTasksFails", func(t *testing.T) {
 		_, err := pillar.ExecuteWithTDD(ctx, []types.Task{})
 		assert.Error(t, err)
+		// Round-405 CONST-046: validation error resolves through
+		// the i18n seam (i18n.ResolveOrFallback); the default
+		// NoopTranslator emits the bundled English fallback.
 		assert.Contains(t, err.Error(), "no tasks")
 
 		_, err = pillar.DispatchSubagents(
@@ -1384,13 +1397,19 @@ func TestFlowResumptionIntegration(t *testing.T) {
 			ctx, "nonexistent-id", "anything",
 		)
 		assert.Error(t, err)
+		// Round-405 CONST-046: flow-not-found error resolves
+		// through the i18n seam (i18n.ResolveOrFallback); the
+		// default NoopTranslator emits the bundled English
+		// fallback with the flow-id arg substituted.
 		assert.Contains(t, err.Error(), "not found")
+		assert.Contains(t, err.Error(), "nonexistent-id")
 	})
 
 	t.Run("GetStatusNonexistentFlowFails", func(t *testing.T) {
 		_, err := eng.GetFlowStatus("nonexistent-id")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not found")
+		assert.Contains(t, err.Error(), "nonexistent-id")
 	})
 
 	t.Run("MultipleFlowsTrackedIndependently", func(t *testing.T) {

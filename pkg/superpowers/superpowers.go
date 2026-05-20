@@ -63,13 +63,30 @@ func (p *Pillar) SetTranslator(t i18n.Translator) {
 	p.translator = t
 }
 
+// xlate returns the Pillar's translator, defaulting to a
+// NoopTranslator when none is wired. Every user-facing string in
+// this package resolves through this seam per CONST-046.
+func (p *Pillar) xlate() i18n.Translator {
+	if p.translator == nil {
+		return i18n.NewNoopTranslator()
+	}
+	return p.translator
+}
+
 // ExecuteWithTDD runs tasks with TDD discipline
 func (p *Pillar) ExecuteWithTDD(
 	ctx context.Context,
 	tasks []types.Task,
 ) ([]types.TaskResult, error) {
 	if len(tasks) == 0 {
-		return nil, fmt.Errorf("no tasks provided")
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				p.xlate(),
+				"helixspecifier_superpowers_err_no_tasks",
+				"no tasks provided",
+			),
+		)
 	}
 
 	results := make([]types.TaskResult, 0, len(tasks))
@@ -95,7 +112,14 @@ func (p *Pillar) DispatchSubagents(
 	maxParallel int,
 ) ([]types.TaskResult, error) {
 	if len(tasks) == 0 {
-		return nil, fmt.Errorf("no tasks provided")
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				p.xlate(),
+				"helixspecifier_superpowers_err_no_tasks",
+				"no tasks provided",
+			),
+		)
 	}
 	if maxParallel <= 0 {
 		maxParallel = p.cfg.MaxParallelAgents
@@ -143,7 +167,14 @@ func (p *Pillar) ReviewCode(
 	taskResults []types.TaskResult,
 ) (*types.ReviewResult, error) {
 	if len(taskResults) == 0 {
-		return nil, fmt.Errorf("no task results to review")
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				p.xlate(),
+				"helixspecifier_superpowers_err_no_task_results",
+				"no task results to review",
+			),
+		)
 	}
 
 	review := &types.ReviewResult{

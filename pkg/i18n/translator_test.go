@@ -157,3 +157,118 @@ func TestTranslator_InterfaceContract(t *testing.T) {
 		got,
 	)
 }
+
+// realTranslator is a unit-test-only translator that resolves a
+// fixed key to a fixed real string, simulating a bundle-backed
+// backend. Mocks permitted in unit tests only (CONST-050(A)).
+type realTranslator struct{}
+
+func (realTranslator) T(key string, args ...any) string {
+	_ = args
+	if key == "helixspecifier_engine_err_empty_request" {
+		return "the request was empty"
+	}
+	return key
+}
+
+// TestResolveOrFallback_NoopPathEmitsFallback is the round-405
+// paired-mutation guard for i18n.ResolveOrFallback. When the
+// translator is the NoopTranslator (key-verbatim path), the call
+// site's bundled English fallback MUST be emitted — never the raw
+// key. A regression that returns the key would leak it into
+// rendered output (Article XI §11.9 usability defect).
+func TestResolveOrFallback_NoopPathEmitsFallback(t *testing.T) {
+	tr := NewNoopTranslator()
+
+	// No-args path.
+	got := ResolveOrFallback(
+		tr,
+		"helixspecifier_engine_err_empty_request",
+		"empty request",
+	)
+	assert.Equal(t, "empty request", got)
+	assert.NotContains(t, got, "helixspecifier_")
+
+	// Args path — fallback is a format string, args substituted.
+	got = ResolveOrFallback(
+		tr,
+		"helixspecifier_engine_err_flow_not_found",
+		"flow %s not found",
+		"flow-42",
+	)
+	assert.Equal(t, "flow flow-42 not found", got)
+	assert.NotContains(t, got, "helixspecifier_")
+}
+
+// TestResolveOrFallback_RealTranslatorWins proves a real
+// bundle-backed translator's result is returned unchanged — the
+// fallback is only used on the noop path.
+func TestResolveOrFallback_RealTranslatorWins(t *testing.T) {
+	got := ResolveOrFallback(
+		realTranslator{},
+		"helixspecifier_engine_err_empty_request",
+		"empty request",
+	)
+	assert.Equal(t, "the request was empty", got)
+	assert.NotEqual(t, "empty request", got,
+		"real translator result must override the fallback")
+}
+
+// TestResolveOrFallback_NilTranslatorSafe proves a nil translator
+// is treated as NoopTranslator — zero-value safety, no panic.
+func TestResolveOrFallback_NilTranslatorSafe(t *testing.T) {
+	got := ResolveOrFallback(
+		nil,
+		"helixspecifier_engine_err_empty_request",
+		"empty request",
+	)
+	assert.Equal(t, "empty request", got)
+}
+
+// TestResolveOrFallback_Round405KeysResolve asserts every
+// round-405 key resolves to a non-empty, non-raw-key string
+// through the noop fallback — sentinel for key/fallback drift.
+// Calls use constant fallback literals so go vet's printf
+// analysis is satisfied (the fallback IS a format string when
+// args are supplied; here no args are passed so it is returned
+// verbatim).
+func TestResolveOrFallback_Round405KeysResolve(t *testing.T) {
+	tr := NewNoopTranslator()
+
+	got := []string{
+		ResolveOrFallback(tr,
+			"helixspecifier_engine_err_speckit_not_registered",
+			"speckit pillar not registered"),
+		ResolveOrFallback(tr,
+			"helixspecifier_engine_err_empty_request",
+			"empty request"),
+		ResolveOrFallback(tr,
+			"helixspecifier_engine_err_classification_required",
+			"classification required"),
+		ResolveOrFallback(tr,
+			"helixspecifier_engine_err_adapter_not_found",
+			"adapter not found"),
+		ResolveOrFallback(tr,
+			"helixspecifier_adapter_err_nil_result",
+			"nil result"),
+		ResolveOrFallback(tr,
+			"helixspecifier_adapter_md_status_completed",
+			"**Status:** Completed\n\n"),
+		ResolveOrFallback(tr,
+			"helixspecifier_adapter_md_phases_heading",
+			"## Phases\n\n"),
+		ResolveOrFallback(tr,
+			"helixspecifier_superpowers_err_no_tasks",
+			"no tasks provided"),
+		ResolveOrFallback(tr,
+			"helixspecifier_superpowers_err_no_task_results",
+			"no task results to review"),
+	}
+	for i, g := range got {
+		assert.NotEmpty(t, g, "case %d resolved empty", i)
+		assert.NotContains(
+			t, g, "helixspecifier_",
+			"case %d: raw key leaked through fallback", i,
+		)
+	}
+}

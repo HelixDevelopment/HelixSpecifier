@@ -131,3 +131,119 @@ func TestEngine_I18nPackagePresent(t *testing.T) {
 	tr := i18n.NewNoopTranslator()
 	assert.NotNil(t, tr)
 }
+
+// TestFusionEngine_Round405_ValidationErrorsUseI18nKeys is the
+// paired-mutation guard for the round-405 CONST-046 migration of
+// FusionEngine validation errors. Each error path is exercised
+// against a recording translator; the assertions confirm (a) the
+// i18n key was invoked and (b) the old hardcoded English literal
+// is NOT present. A regression that reinstates any literal fails
+// this test.
+func TestFusionEngine_Round405_ValidationErrorsUseI18nKeys(
+	t *testing.T,
+) {
+	logger := logrus.New()
+	cfg := config.DefaultConfig()
+	ctx := context.Background()
+
+	// Health: speckit pillar not registered (speckit is nil).
+	rec := &recordingTranslator{}
+	e := NewWithTranslator(cfg, logger, rec)
+	err := e.Health(ctx)
+	require.Error(t, err)
+	assert.Contains(
+		t, rec.calls,
+		"helixspecifier_engine_err_speckit_not_registered",
+	)
+	assert.Equal(
+		t,
+		"stub:helixspecifier_engine_err_speckit_not_registered",
+		err.Error(),
+	)
+	assert.NotContains(
+		t, err.Error(), "speckit pillar not registered",
+		"regression: hardcoded literal reintroduced",
+	)
+
+	// ClassifyEffort: empty request.
+	rec2 := &recordingTranslator{}
+	e2 := NewWithTranslator(cfg, logger, rec2)
+	_, err = e2.ClassifyEffort(ctx, "")
+	require.Error(t, err)
+	assert.Contains(
+		t, rec2.calls,
+		"helixspecifier_engine_err_empty_request",
+	)
+	assert.NotContains(t, err.Error(), "empty request")
+
+	// ExecuteFlow: nil classification.
+	rec3 := &recordingTranslator{}
+	e3 := NewWithTranslator(cfg, logger, rec3)
+	_, err = e3.ExecuteFlow(ctx, "req", nil)
+	require.Error(t, err)
+	assert.Contains(
+		t, rec3.calls,
+		"helixspecifier_engine_err_classification_required",
+	)
+	assert.NotContains(t, err.Error(), "classification required")
+
+	// GetFlowStatus: flow not found.
+	rec4 := &recordingTranslator{}
+	e4 := NewWithTranslator(cfg, logger, rec4)
+	_, err = e4.GetFlowStatus("missing-flow")
+	require.Error(t, err)
+	assert.Contains(
+		t, rec4.calls,
+		"helixspecifier_engine_err_flow_not_found",
+	)
+	assert.NotContains(t, err.Error(), "flow missing-flow not found")
+
+	// ResumeFlow: flow not found.
+	rec5 := &recordingTranslator{}
+	e5 := NewWithTranslator(cfg, logger, rec5)
+	_, err = e5.ResumeFlow(ctx, "missing-flow", "req")
+	require.Error(t, err)
+	assert.Contains(
+		t, rec5.calls,
+		"helixspecifier_engine_err_flow_not_found",
+	)
+
+	// GetAdapter: adapter not found.
+	rec6 := &recordingTranslator{}
+	e6 := NewWithTranslator(cfg, logger, rec6)
+	_, err = e6.GetAdapter("missing-adapter")
+	require.Error(t, err)
+	assert.Contains(
+		t, rec6.calls,
+		"helixspecifier_engine_err_adapter_not_found",
+	)
+	assert.NotContains(t, err.Error(), "adapter missing-adapter")
+}
+
+// TestFusionEngine_Round405_NoopFallbackEmitsEnglish proves the
+// NoopTranslator path (via i18n.ResolveOrFallback) emits the
+// bundled English fallback — NOT a raw i18n key — so the real
+// engine still produces a coherent message when no translator is
+// wired. A raw key leaking into an error is itself a usability
+// defect (Article XI §11.9 — "users can use the feature").
+func TestFusionEngine_Round405_NoopFallbackEmitsEnglish(
+	t *testing.T,
+) {
+	logger := logrus.New()
+	cfg := config.DefaultConfig()
+	e := New(cfg, logger)
+	ctx := context.Background()
+
+	_, err := e.ClassifyEffort(ctx, "")
+	require.Error(t, err)
+	assert.Equal(t, "empty request", err.Error())
+	assert.NotContains(
+		t, err.Error(), "helixspecifier_engine_err_",
+		"raw i18n key leaked into noop-path output",
+	)
+
+	_, err = e.GetFlowStatus("nope")
+	require.Error(t, err)
+	assert.Equal(t, "flow nope not found", err.Error(),
+		"flow id arg must be substituted into the fallback")
+}

@@ -168,11 +168,28 @@ func (e *FusionEngine) Version() string {
 	return "1.0.0"
 }
 
+// tr returns the engine's translator, defaulting to a
+// NoopTranslator when none is wired. Every user-facing string in
+// this package resolves through this seam per CONST-046.
+func (e *FusionEngine) tr() i18n.Translator {
+	if e.translator == nil {
+		return i18n.NewNoopTranslator()
+	}
+	return e.translator
+}
+
 // Health returns health status. It returns an error if the
 // SpecKit pillar is not registered.
 func (e *FusionEngine) Health(ctx context.Context) error {
 	if e.speckit == nil {
-		return fmt.Errorf("speckit pillar not registered")
+		return fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				e.tr(),
+				"helixspecifier_engine_err_speckit_not_registered",
+				"speckit pillar not registered",
+			),
+		)
 	}
 	return nil
 }
@@ -186,7 +203,14 @@ func (e *FusionEngine) ClassifyEffort(
 	request string,
 ) (*types.EffortClassification, error) {
 	if request == "" {
-		return nil, fmt.Errorf("empty request")
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				e.tr(),
+				"helixspecifier_engine_err_empty_request",
+				"empty request",
+			),
+		)
 	}
 
 	var classification *types.EffortClassification
@@ -241,7 +265,14 @@ func (e *FusionEngine) ExecuteFlow(
 	classification *types.EffortClassification,
 ) (*types.FlowResult, error) {
 	if classification == nil {
-		return nil, fmt.Errorf("classification required")
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				e.tr(),
+				"helixspecifier_engine_err_classification_required",
+				"classification required",
+			),
+		)
 	}
 
 	flowID := fmt.Sprintf("hsf-%s", uuid.New().String()[:8])
@@ -429,7 +460,15 @@ func (e *FusionEngine) ResumeFlow(
 	e.mu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("flow %s not found", flowID)
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				e.tr(),
+				"helixspecifier_engine_err_flow_not_found",
+				"flow %s not found",
+				flowID,
+			),
+		)
 	}
 
 	if existing.Success {
@@ -455,7 +494,15 @@ func (e *FusionEngine) GetFlowStatus(
 
 	result, ok := e.flows[flowID]
 	if !ok {
-		return nil, fmt.Errorf("flow %s not found", flowID)
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				e.tr(),
+				"helixspecifier_engine_err_flow_not_found",
+				"flow %s not found",
+				flowID,
+			),
+		)
 	}
 	return result, nil
 }
@@ -469,7 +516,15 @@ func (e *FusionEngine) GetAdapter(
 
 	adapter, ok := e.adapters[name]
 	if !ok {
-		return nil, fmt.Errorf("adapter %s not found", name)
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				e.tr(),
+				"helixspecifier_engine_err_adapter_not_found",
+				"adapter %s not found",
+				name,
+			),
+		)
 	}
 	return adapter, nil
 }
@@ -541,7 +596,14 @@ func (e *FusionEngine) executePhase(
 	input *types.PhaseInput,
 ) (*types.PhaseResult, error) {
 	if e.speckit == nil {
-		return nil, fmt.Errorf("speckit pillar not registered")
+		return nil, fmt.Errorf(
+			"%s",
+			i18n.ResolveOrFallback(
+				e.tr(),
+				"helixspecifier_engine_err_speckit_not_registered",
+				"speckit pillar not registered",
+			),
+		)
 	}
 
 	timeout := e.cfg.GetPhaseTimeout(string(phase))

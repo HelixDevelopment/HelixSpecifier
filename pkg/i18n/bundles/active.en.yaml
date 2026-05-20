@@ -41,3 +41,29 @@ helixspecifier_speckit_topic_implement: "Execute implementation:\n\nAnalysis: %s
 
 helixspecifier_superpowers_task_executed: "Executed task: %s"
 helixspecifier_predictive_basis_label: "Based on: %s"
+
+# Round-405 additions (CONST-046 Phase 4): FusionEngine validation
+# errors, GenericAdapter Markdown report-render content, and
+# Superpowers Pillar validation errors extracted from production
+# code. Format strings preserve their %s / %v / %.2f placeholders
+# so call sites can still supply runtime substitutions via
+# t.T(key, args...).
+
+helixspecifier_engine_err_speckit_not_registered: "speckit pillar not registered"
+helixspecifier_engine_err_empty_request: "empty request"
+helixspecifier_engine_err_classification_required: "classification required"
+helixspecifier_engine_err_flow_not_found: "flow %s not found"
+helixspecifier_engine_err_adapter_not_found: "adapter %s not found"
+
+helixspecifier_adapter_err_nil_result: "nil result"
+helixspecifier_adapter_md_flow_heading: "# HelixSpecifier Flow: %s\n\n"
+helixspecifier_adapter_md_effort_label: "**Effort:** %s | "
+helixspecifier_adapter_md_ceremony_label: "**Ceremony:** %s | "
+helixspecifier_adapter_md_quality_label: "**Quality:** %.2f\n\n"
+helixspecifier_adapter_md_status_completed: "**Status:** Completed\n\n"
+helixspecifier_adapter_md_status_failed: "**Status:** Failed\n\n"
+helixspecifier_adapter_md_phases_heading: "## Phases\n\n"
+helixspecifier_adapter_md_phase_row: "- **%s** [%s] (%.2f) %s\n"
+
+helixspecifier_superpowers_err_no_tasks: "no tasks provided"
+helixspecifier_superpowers_err_no_task_results: "no task results to review"

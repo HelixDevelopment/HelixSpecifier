@@ -23,6 +23,7 @@ package i18n
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Translator resolves locale-aware messages for HelixSpecifier
@@ -66,4 +67,42 @@ func (NoopTranslator) T(key string, args ...any) string {
 // quirks of an empty struct.
 func NewNoopTranslator() Translator {
 	return NoopTranslator{}
+}
+
+// ResolveOrFallback routes a user-facing string through the
+// translator and, when the translator is the NoopTranslator (the
+// key-verbatim path), substitutes a bundled English fallback so
+// the call site still emits a coherent, correctly-formatted string
+// instead of a raw i18n key.
+//
+// This is the seam every CONST-046 migration of *display-formatted*
+// content (Markdown report bodies, multi-part labels, validation
+// errors) MUST pass through: a raw key leaking into rendered output
+// is itself a usability defect (Article XI §11.9 — "users can use
+// the feature" is the bar, not "tests pass").
+//
+// Detection contract: NoopTranslator.T returns the msgID verbatim
+// when no args are supplied, or fmt.Sprintf(msgID, args...) when
+// args are supplied — in the latter case the result still begins
+// with the msgID because msgID is not a format string. So a result
+// equal to OR prefixed by msgID signals the noop path; the call
+// site's bundled English fallback is then emitted (formatted with
+// the same args). A real bundle-backed Translator resolves the key
+// to locale text and its result is returned unchanged.
+func ResolveOrFallback(
+	tr Translator,
+	msgID, fallback string,
+	args ...any,
+) string {
+	if tr == nil {
+		tr = NoopTranslator{}
+	}
+	got := tr.T(msgID, args...)
+	if got == msgID || strings.HasPrefix(got, msgID) {
+		if len(args) == 0 {
+			return fallback
+		}
+		return fmt.Sprintf(fallback, args...)
+	}
+	return got
 }

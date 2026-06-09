@@ -21,6 +21,22 @@ type Metrics struct {
 	mu             sync.RWMutex
 }
 
+// MetricsSnapshot is a mutex-free, read-only copy of Metrics returned by
+// Snapshot. It carries the same data fields as Metrics but omits the embedded
+// sync.RWMutex, so handing it to callers by value never copies a lock (the
+// copied-lock concurrency hazard go vet's copylocks analyzer flags).
+type MetricsSnapshot struct {
+	FlowsStarted   int64
+	FlowsCompleted int64
+	FlowsFailed    int64
+	PhasesExecuted int64
+	PhasesFailed   int64
+	TotalDuration  time.Duration
+	PhaseMetrics   map[types.SpecKitPhase]*PhaseMetric
+	EffortCounts   map[types.EffortLevel]int64
+	CeremonyCounts map[types.CeremonyLevel]int64
+}
+
 // PhaseMetric tracks per-phase metrics
 type PhaseMetric struct {
 	Executions    int64
@@ -137,10 +153,17 @@ func (m *Metrics) GetEffortCount(
 }
 
 // Snapshot returns a read-only copy of current metrics
-func (m *Metrics) Snapshot() Metrics {
+func (m *Metrics) Snapshot() MetricsSnapshot {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	cp := *m
+	cp := MetricsSnapshot{
+		FlowsStarted:   m.FlowsStarted,
+		FlowsCompleted: m.FlowsCompleted,
+		FlowsFailed:    m.FlowsFailed,
+		PhasesExecuted: m.PhasesExecuted,
+		PhasesFailed:   m.PhasesFailed,
+		TotalDuration:  m.TotalDuration,
+	}
 	cp.PhaseMetrics = make(
 		map[types.SpecKitPhase]*PhaseMetric,
 	)

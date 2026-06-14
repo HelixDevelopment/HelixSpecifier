@@ -102,22 +102,38 @@ func TestPillar_BuildPhaseTopic_AllPhasesUseI18nKeys(t *testing.T) {
 	}
 }
 
-// TestPillar_BuildPhaseTopic_NoopFallbackVisible verifies the
-// NoopTranslator path keeps the migration safe: with the default
-// constructor (no translator injected) the topic still contains
-// the canonical key plus the input payload, so a missing-bundle
-// situation is visibly debuggable rather than silently empty.
-func TestPillar_BuildPhaseTopic_NoopFallbackVisible(t *testing.T) {
+// TestPillar_BuildPhaseTopic_DefaultResolvesToProse verifies the
+// production default path (NewPillar, no translator injected) now
+// resolves the topic key to its embedded bundle prose with the
+// input payload interpolated — NOT the raw i18n key.
+//
+// §11.4.120 reconciliation (HXC-081): this test previously asserted
+// the default topic CONTAINED the raw key
+// `helixspecifier_speckit_topic_constitution` — that assertion
+// codified the HXC-081 bug (NoopTranslator default leaking the raw
+// key + producing `%!(EXTRA ...)`). The default is now the
+// bundle-backed translator, so the correct invariant is: resolved
+// prose, request + constitution interpolated, NO raw key.
+func TestPillar_BuildPhaseTopic_DefaultResolvesToProse(t *testing.T) {
 	p := newTestPillar()
 	input := newTestInput()
 
 	topic := p.buildPhaseTopic(types.PhaseConstitution, input)
-	assert.Contains(
+	assert.NotContains(
 		t, topic, "helixspecifier_speckit_topic_constitution",
+		"raw i18n key leaked into default-resolved topic",
+	)
+	assert.NotContains(
+		t, topic, "%!(EXTRA",
+		"Go format-error marker present in default-resolved topic",
 	)
 	assert.Contains(t, topic, input.UserRequest)
 	assert.Contains(t, topic, input.Constitution)
-	assert.NotEmpty(t, topic, "noop translator returned empty topic")
+	assert.Contains(
+		t, topic, "Constitution",
+		"default topic is not the expected resolved prose",
+	)
+	assert.NotEmpty(t, topic, "default translator returned empty topic")
 }
 
 // TestPillar_NewPillarWithTranslator_NilFallback proves the
@@ -133,12 +149,23 @@ func TestPillar_NewPillarWithTranslator_NilFallback(t *testing.T) {
 // TestPillar_SetTranslator_Swap exercises runtime swap including
 // nil-fallback. Confirms no panic and subsequent topic builds use
 // the new backend.
+//
+// §11.4.120 reconciliation (HXC-081): the default-path assertions
+// (t1, t3) previously asserted the raw key
+// `helixspecifier_speckit_topic_plan` — codifying the bug. The
+// default + nil-fallback now resolve through the bundle-backed
+// DefaultTranslator, so they assert resolved prose with the input
+// interpolated and no raw key. The injected-translator assertion
+// (t2, recordingTranslator stub) is unchanged — injection still
+// routes through whatever backend is set.
 func TestPillar_SetTranslator_Swap(t *testing.T) {
 	p := newTestPillar()
 	input := newTestInput()
 
 	t1 := p.buildPhaseTopic(types.PhasePlan, input)
-	assert.Contains(t, t1, "helixspecifier_speckit_topic_plan")
+	assert.NotContains(t, t1, "helixspecifier_speckit_topic_plan")
+	assert.NotContains(t, t1, "%!(EXTRA")
+	assert.Contains(t, t1, input.PreviousOutput)
 
 	rec := &recordingTranslator{}
 	p.SetTranslator(rec)
@@ -147,7 +174,9 @@ func TestPillar_SetTranslator_Swap(t *testing.T) {
 
 	p.SetTranslator(nil)
 	t3 := p.buildPhaseTopic(types.PhasePlan, input)
-	assert.Contains(t, t3, "helixspecifier_speckit_topic_plan")
+	assert.NotContains(t, t3, "helixspecifier_speckit_topic_plan")
+	assert.NotContains(t, t3, "%!(EXTRA")
+	assert.Contains(t, t3, input.PreviousOutput)
 	assert.NotContains(t, t3, "stub:")
 }
 

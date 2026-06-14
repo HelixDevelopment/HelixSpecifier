@@ -49,9 +49,17 @@ type Pillar struct {
 	DebateFunc types.DebateFunc
 }
 
-// NewPillar creates a new SpecKit pillar with the default
-// NoopTranslator. Production callers SHOULD prefer
-// NewPillarWithTranslator and inject a real backend.
+// NewPillar creates a new SpecKit pillar with the bundle-backed
+// default translator (i18n.DefaultTranslator). Production callers
+// MAY still inject a custom backend via NewPillarWithTranslator.
+//
+// HXC-081 fix: the default was previously i18n.NewNoopTranslator(),
+// whose T fed the raw i18n key to fmt.Sprintf with positional args
+// (the key carries no `%` verb), producing a live /specify topic of
+// `helixspecifier_speckit_topic_specify%!(EXTRA string=...)`. The
+// bundle-backed default resolves the key to its embedded format
+// string (whose `%s` verbs match the args), so the topic renders as
+// coherent prose referencing the request.
 func NewPillar(
 	cfg *config.Config,
 	logger *logrus.Logger,
@@ -59,7 +67,7 @@ func NewPillar(
 	return &Pillar{
 		cfg:        cfg,
 		logger:     logger,
-		translator: i18n.NewNoopTranslator(),
+		translator: i18n.DefaultTranslator(),
 	}
 }
 
@@ -72,7 +80,7 @@ func NewPillarWithTranslator(
 	t i18n.Translator,
 ) *Pillar {
 	if t == nil {
-		t = i18n.NewNoopTranslator()
+		t = i18n.DefaultTranslator()
 	}
 	return &Pillar{
 		cfg:        cfg,
@@ -86,7 +94,7 @@ func NewPillarWithTranslator(
 // panic-free.
 func (p *Pillar) SetTranslator(t i18n.Translator) {
 	if t == nil {
-		t = i18n.NewNoopTranslator()
+		t = i18n.DefaultTranslator()
 	}
 	p.translator = t
 }
@@ -218,7 +226,7 @@ func (p *Pillar) buildPhaseTopic(
 ) string {
 	t := p.translator
 	if t == nil {
-		t = i18n.NewNoopTranslator()
+		t = i18n.DefaultTranslator()
 	}
 	switch phase {
 	case types.PhaseConstitution:
